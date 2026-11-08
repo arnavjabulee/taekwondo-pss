@@ -115,6 +115,26 @@ async function main() {
       .getByText('Body: 2865 raw (L71.63)', { exact: true })
       .waitFor();
     await page.screenshot({ path: path.join(artifacts, 'courts.png') });
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    const teamName = page.getByRole('textbox', { name: 'Team Name', exact: true });
+    await teamName.fill('North London Club');
+    await page.evaluate(() => window.OnVkSpace());
+    assert.equal(await page.getByRole('button', { name: 'Start', exact: true }).isVisible(), true);
+    const editingName = await teamName.evaluate((input) => {
+      let current = input.closest('#myModal');
+      while (current && !current.__vue__) current = current.parentElement;
+      return current.__vue__.gameinfo.game_name;
+    });
+    assert.equal(editingName, 'North London Club');
+    await page.getByRole('button', { name: 'Save Settings', exact: true }).click();
+    assert.equal(
+      await page.evaluate(() => JSON.parse(localStorage.getItem('xlgame_info')).game_name),
+      'North London Club'
+    );
+    await page.getByText('North London Club', { exact: true }).first().waitFor();
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    assert.equal(await teamName.inputValue(), 'North London Club');
+    await page.getByRole('button', { name: 'Save Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Sensor levels', exact: true }).click();
     await page.getByRole('dialog', { name: 'Sensor levels' }).waitFor();
     await page.evaluate(() => window.OnVkSpace());

@@ -106,7 +106,7 @@ def patch_controller(text):
     )
     text = text.replace(
         "handleVkSpace:function(){",
-        "handleVkSpace:function(){if(window.LEDA_SENSOR_MONITOR.isOpen())return;",
+        "handleVkSpace:function(){if(window.LEDA_CONTROLLER_FIXES.ignoreSpaceShortcut())return;",
     )
     text = text.replace(
         "mounted:function(){var t=this;",
@@ -115,6 +115,23 @@ def patch_controller(text):
     text = text.replace(
         "beforeDestroy:function(){this.$parent.stopGame()",
         "beforeDestroy:function(){window.LEDA_SENSOR_MONITOR.detach();this.$parent.stopGame()",
+    )
+    old_name_input = (
+        'e("input",{directives:[{name:"model",rawName:"v-model.lazy",'
+        'value:t.gameinfo.game_name,expression:"gameinfo.game_name",modifiers:{lazy:!0}}],'
+        'staticClass:"form-control",attrs:{type:"text"},domProps:{value:t.gameinfo.game_name},'
+        'on:{change:function(e){return t.$set(t.gameinfo,"game_name",e.target.value)}}})'
+    )
+    name_input = (ROOT / "src/integration/team-name-input.js").read_text(
+        encoding="utf-8"
+    )
+    name_input = name_input[name_input.index("e(") :].strip().rstrip(";")
+    text = replace_once(text, old_name_input, name_input, "Team name input")
+    text = replace_once(
+        text,
+        'e("label",[t._v("Team Name")])',
+        'e("label",{attrs:{for:"leda-team-name"}},[t._v("Team Name")])',
+        "Team name label",
     )
     return text
 

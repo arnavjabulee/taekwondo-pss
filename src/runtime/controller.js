@@ -16,6 +16,18 @@
       Number(slot.index) >= 0
     );
   }
+  function ignoreSpaceShortcut() {
+    if (root.LEDA_SENSOR_MONITOR && root.LEDA_SENSOR_MONITOR.isOpen()) return true;
+    if (!root.document) return false;
+    var focused = root.document.activeElement;
+    if (
+      focused &&
+      (/^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName) || focused.isContentEditable)
+    ) {
+      return true;
+    }
+    return !!root.document.querySelector('.modal.in');
+  }
   function conflicts(games) {
     var athletes = {},
       devices = {},
@@ -190,6 +202,7 @@
     controller.SendGameData();
   }
   var api = {
+    ignoreSpaceShortcut: ignoreSpaceShortcut,
     assigned: assigned,
     conflicts: conflicts,
     changeAthlete: changeAthlete,

@@ -3,6 +3,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const fixes = require('../src/runtime/controller.js');
+global.document = {
+  activeElement: { tagName: 'INPUT' },
+  querySelector() {
+    return null;
+  }
+};
+assert.equal(fixes.ignoreSpaceShortcut(), true);
+global.document.activeElement = { tagName: 'DIV' };
+assert.equal(fixes.ignoreSpaceShortcut(), false);
+global.document.querySelector = () => ({});
+assert.equal(fixes.ignoreSpaceShortcut(), true);
+delete global.document;
 const slot = (index) => ({ index, toukui: '', huju: '' });
 const games = [
   { left: slot(0), right: slot(1) },
