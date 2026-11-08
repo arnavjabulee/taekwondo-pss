@@ -1,0 +1,16 @@
+{
+  "name": "leda-pss",
+  "version": "1.0.0",
+  "private": true,
+  "description": "English court training interface for Leda Sport v2.02",
+  "scripts": {
+    "test": "python tools/verify_build.py && node tools/verify_core.cjs && node tools/verify_controller.cjs && node tools/verify_scoring.cjs && node tools/verify_sensors.cjs",
+    "format": "prettier --write src tools/*.cjs package.json",
+    "format:check": "prettier --check src tools/*.cjs package.json",
+    "test:ui": "node tools/verify_ui.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "prettier": "^3.9.10"
+  }
+}

@@ -1,55 +1,150 @@
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const vm=require('node:vm');
-const monitor=require('./sensor_monitor.js');
-const fixes=require('./controller_fixes.js');
-assert.deepEqual(monitor.parse('ABCDEF123456,value:1240'),{id:'abcdef123456',value:1240});
-for(const message of ['bad','abcdef123456,value:','abcdef123456,value:NaN','abcdef123456,value:-1','abcdef123456,value:Infinity'])assert.equal(monitor.parse(message),null);
-assert.equal(monitor.level(71),71);assert.equal(monitor.level(72),null);assert.equal(monitor.level(1.5),null);
-let writes=0,refresh=0;
-const empty=()=>({index:'',toukui:'',huju:'',score:0,tkhits:0,hjhits:0,valid:0});
-const game={lidu:30,left:{...empty(),index:0,huju:'abcdef123456'},right:empty()};
-const store={SaveChangdiData(){writes++},IS_GAMING:false};
-const ctx={gvi:{game_state:1,game:[game]},gameinfo:{toukui_gate:1},SendGameData(){refresh++},$parent:{}};
-monitor.attach(ctx,store);
-monitor.step(ctx,store,0,1);assert.equal(game.lidu,31);assert.equal(writes,1);
-assert.equal(monitor.setThreshold(ctx,store,0,71),true);
-monitor.step(ctx,store,0,1);assert.equal(game.lidu,71);
-assert.equal(monitor.setThreshold(ctx,store,0,72),false);
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const monitor = require('../src/runtime/sensors.js');
+const fixes = require('../src/runtime/controller.js');
+assert.deepEqual(monitor.parse('ABCDEF123456,value:1240'), { id: 'abcdef123456', value: 1240 });
+for (const message of [
+  'bad',
+  'abcdef123456,value:',
+  'abcdef123456,value:NaN',
+  'abcdef123456,value:-1',
+  'abcdef123456,value:Infinity'
+])
+  assert.equal(monitor.parse(message), null);
+assert.equal(monitor.level(71), 71);
+assert.equal(monitor.level(72), null);
+assert.equal(monitor.level(1.5), null);
+let writes = 0,
+  refresh = 0;
+const empty = () => ({ index: '', toukui: '', huju: '', score: 0, tkhits: 0, hjhits: 0, valid: 0 });
+const game = { lidu: 30, left: { ...empty(), index: 0, huju: 'abcdef123456' }, right: empty() };
+const store = {
+  SaveChangdiData() {
+    writes++;
+  },
+  IS_GAMING: false
+};
+const ctx = {
+  gvi: { game_state: 1, game: [game] },
+  gameinfo: { toukui_gate: 1 },
+  SendGameData() {
+    refresh++;
+  },
+  $parent: {}
+};
+monitor.attach(ctx, store);
+monitor.step(ctx, store, 0, 1);
+assert.equal(game.lidu, 31);
+assert.equal(writes, 1);
+assert.equal(monitor.setThreshold(ctx, store, 0, 71), true);
+monitor.step(ctx, store, 0, 1);
+assert.equal(game.lidu, 71);
+assert.equal(monitor.setThreshold(ctx, store, 0, 72), false);
 monitor.receive('abcdef123456,value:1240');
-let hit=monitor.readings()[0];
-assert.equal(hit.assignment.court,1);assert.equal(hit.assignment.side,'Blue');assert.equal(hit.assignment.threshold,2840);
-assert.equal(game.right.score,0); // monitor works while scoring is stopped
-assert.equal(game.left.last_hit.raw,1240);
-assert.equal(game.right.last_hit,undefined);
-assert.equal(monitor.formatHit(game.left),'Body: 1240 raw (L31.00)');
-game.right.toukui='000000000008';
+let hit = monitor.readings()[0];
+assert.equal(hit.assignment.court, 1);
+assert.equal(hit.assignment.side, 'Blue');
+assert.equal(hit.assignment.threshold, 2840);
+assert.equal(game.right.score, 0); // monitor works while scoring is stopped
+assert.equal(game.left.last_hit.raw, 1240);
+assert.equal(game.right.last_hit, undefined);
+assert.equal(monitor.formatHit(game.left), 'Body: 1240 raw (L31.00)');
+game.right.toukui = '000000000008';
 monitor.receive('000000000008,value:2865');
-assert.equal(game.right.last_hit.raw,2865);
-assert.equal(game.right.last_hit.type,'Helmet');
-assert.equal(game.left.last_hit.raw,1240);
-assert.equal(monitor.formatHit(game.right),'Helmet: 2865 raw (L71.63)');
-assert.equal(game.left.score,0); // readings follow wearer, independent of points
-monitor.receive('000000000008,value:2');assert.equal(game.right.last_hit.raw,2);
-monitor.receive('000000000009,value:10');assert.equal(monitor.readings()[0].assignment,null);
-for(let i=0;i<50;i++)monitor.receive('abcdef123456,value:'+i);
-assert.equal(monitor.readings().length,40);
+assert.equal(game.right.last_hit.raw, 2865);
+assert.equal(game.right.last_hit.type, 'Helmet');
+assert.equal(game.left.last_hit.raw, 1240);
+assert.equal(monitor.formatHit(game.right), 'Helmet: 2865 raw (L71.63)');
+assert.equal(game.left.score, 0); // readings follow wearer, independent of points
+monitor.receive('000000000008,value:2');
+assert.equal(game.right.last_hit.raw, 2);
+monitor.receive('000000000009,value:10');
+assert.equal(monitor.readings()[0].assignment, null);
+for (let i = 0; i < 50; i++) monitor.receive('abcdef123456,value:' + i);
+assert.equal(monitor.readings().length, 40);
 monitor.detach();
-let persisted={...game,lidu:74};
-const rosterStore={ReadChangdiData(i){return i===0?persisted:null},ReadGameData(){return {name:'A',court:1,huju:'abcdef123456'}},SaveChangdiData(){}};
-fixes.prepareCourts(rosterStore,{changci_begin:0,changci_end:1});assert.equal(rosterStore.game_list[0].lidu,71);
+let persisted = { ...game, lidu: 74 };
+const rosterStore = {
+  ReadChangdiData(i) {
+    return i === 0 ? persisted : null;
+  },
+  ReadGameData() {
+    return { name: 'A', court: 1, huju: 'abcdef123456' };
+  },
+  SaveChangdiData() {}
+};
+fixes.prepareCourts(rosterStore, { changci_begin: 0, changci_end: 1 });
+assert.equal(rosterStore.game_list[0].lidu, 71);
 // Exercise panel lifecycle and receiver calls with a minimal DOM harness.
-function node(tag){return {tag,children:[],style:{},hidden:false,appendChild(el){el.parentNode=this;this.children.push(el)},removeChild(el){this.children=this.children.filter(x=>x!==el)},setAttribute(k,v){this[k]=v},querySelector(){return this.children.find(n=>n['data-events']==='')},set textContent(v){this.text=v;this.children=[]},get textContent(){return this.text}};}
-const body=node('body'),commands=[],alerts=[];
-const sandbox={document:{body,createElement:node},alert:m=>alerts.push(m),LEDA_CONTROLLER_FIXES:fixes};sandbox.window=sandbox;
-vm.runInNewContext(fs.readFileSync(require.resolve('./sensor_monitor.js'),'utf8'),sandbox);
-store.IS_ONLINE=true;
-ctx.$parent={start_devices:t=>commands.push(['start',t]),stop_devices:t=>commands.push(['stop',t])};
-sandbox.LEDA_SENSOR_MONITOR.attach(ctx,store);
+function findNode(root, match) {
+  if (match(root)) return root;
+  for (const child of root.children) {
+    const found = findNode(child, match);
+    if (found) return found;
+  }
+  return null;
+}
+function node(tag) {
+  return {
+    tag,
+    children: [],
+    style: {},
+    hidden: false,
+    appendChild(el) {
+      el.parentNode = this;
+      this.children.push(el);
+    },
+    removeChild(el) {
+      this.children = this.children.filter((x) => x !== el);
+    },
+    setAttribute(k, v) {
+      this[k] = v;
+    },
+    querySelector(selector) {
+      return findNode(this, (n) =>
+        selector === 'button' ? n.tag === 'button' : n['data-events'] === ''
+      );
+    },
+    set textContent(v) {
+      this.text = v;
+      this.children = [];
+    },
+    get textContent() {
+      return this.text;
+    }
+  };
+}
+const body = node('body'),
+  commands = [],
+  alerts = [];
+const sandbox = {
+  document: { body, createElement: node },
+  alert: (m) => alerts.push(m),
+  LEDA_CONTROLLER_FIXES: fixes,
+  LEDA_CORE: require('../src/runtime/core.js')
+};
+sandbox.window = sandbox;
+vm.runInNewContext(fs.readFileSync(require.resolve('../src/runtime/sensors.js'), 'utf8'), sandbox);
+store.IS_ONLINE = true;
+ctx.$parent = {
+  start_devices: (t) => commands.push(['start', t]),
+  stop_devices: (t) => commands.push(['stop', t])
+};
+sandbox.LEDA_SENSOR_MONITOR.attach(ctx, store);
 body.children[0].onclick();
-let panel=body.children[1];
-panel.children.find(n=>n.text==='Listen for hits').onclick();assert.equal(commands.length,4);assert.equal(ctx.gvi.game_state,1);
-panel.children.find(n=>n.text==='Close').onclick();assert.equal(commands.filter(c=>c[0]==='stop').length,4);
-body.children[0].onclick();panel.children.find(n=>n.text==='Pressure-only / no socks: check support').onclick();assert.equal(alerts.length,1);assert.equal(commands.length,8);
-sandbox.LEDA_SENSOR_MONITOR.detach();assert.equal(body.children.length,0);
-console.log('Sensor checks passed: values, invalid packets, paused monitoring, limit above 30, persistence, panel controls, listen/stop lifecycle, and no undocumented commands.');
+let panel = body.children[1];
+findNode(panel, (n) => n.text === 'Listen for hits').onclick();
+assert.equal(commands.length, 4);
+assert.equal(ctx.gvi.game_state, 1);
+findNode(panel, (n) => n.text === 'Close').onclick();
+assert.equal(commands.filter((c) => c[0] === 'stop').length, 4);
+body.children[0].onclick();
+findNode(panel, (n) => n.text === 'Pressure-only support').onclick();
+assert.equal(alerts.length, 1);
+assert.equal(commands.length, 8);
+sandbox.LEDA_SENSOR_MONITOR.detach();
+assert.equal(body.children.length, 0);
+console.log(
+  'Sensor checks passed: values, invalid packets, paused monitoring, limit above 30, persistence, panel controls, listen/stop lifecycle, and no undocumented commands.'
+);

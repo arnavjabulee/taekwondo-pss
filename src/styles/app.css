@@ -1,0 +1,539 @@
+/* Presentation overrides for the vendor views. Keep court geometry intact. */
+html,
+body {
+  background: #0c1220 !important;
+  color: #e8edf6;
+  font-family: 'Segoe UI', Arial, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+  text-shadow: none !important;
+}
+button,
+input,
+select {
+  font-family: inherit;
+}
+a {
+  color: #79b5ff;
+}
+a:hover,
+a:focus {
+  color: #b2d5ff;
+}
+
+.btn,
+.ctrl_btn,
+.leda-button {
+  border: 1px solid #3a4860 !important;
+  border-radius: 7px !important;
+  background: #202d43 !important;
+  color: #eef4ff !important;
+  box-shadow: none !important;
+  font-weight: 600;
+  padding: 9px 16px !important;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+.btn:hover,
+.ctrl_btn:hover,
+.leda-button:hover {
+  background: #30415d !important;
+  border-color: #637d9e !important;
+}
+.btn-success,
+.btn-primary,
+.leda-button-primary {
+  background: #2864d8 !important;
+  border-color: #3975e4 !important;
+}
+.btn-success:hover,
+.btn-primary:hover,
+.leda-button-primary:hover {
+  background: #3473ec !important;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid #8dc2ff !important;
+  outline-offset: 3px;
+}
+
+.form-control,
+.leda-threshold-field input {
+  border: 1px solid #41516b;
+  border-radius: 6px;
+  background: #151f32;
+  color: #f2f6fc;
+  box-shadow: none;
+  min-height: 34px;
+}
+select {
+  cursor: pointer;
+}
+select option {
+  background: #172339;
+  color: #f2f6fc;
+}
+
+.leda-athletes {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 24px 28px;
+}
+.leda-athletes > .row {
+  min-height: 54px;
+}
+.leda-athletes > .row > .col-sm-6 {
+  font-size: 28px !important;
+  letter-spacing: -0.5px;
+}
+.leda-athletes .form-inline {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 24px;
+}
+.leda-athletes table {
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #121c2d;
+  border: 1px solid #29374c;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.leda-athletes caption {
+  color: #9bacbf;
+  text-align: left;
+  padding: 14px 0;
+  font-size: 14px;
+}
+.leda-athletes tr td {
+  padding: 13px 14px;
+  text-align: left;
+  border-bottom: 1px solid #243147;
+  font-size: 14px;
+}
+.leda-athletes .head_text td {
+  background: #1b2940;
+  color: #aabbd0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.leda-athletes .table_line:hover {
+  background: #1a2a42;
+}
+.leda-athletes .active_line {
+  background: #243e60 !important;
+  color: #fff;
+}
+.leda-athletes td:nth-child(4),
+.leda-athletes td:nth-child(5) {
+  font-family: Consolas, monospace;
+  font-size: 13px;
+  color: #acbed6;
+}
+.leda-athletes td:last-child {
+  font-weight: 600;
+}
+.leda-colour-blue {
+  color: #86b9ff;
+}
+.leda-colour-red {
+  color: #ffa4ad;
+}
+.leda-colour-none {
+  color: #9aaac0;
+}
+
+.leda-courts .game-block {
+  padding: 5px;
+}
+.leda-courts .game-block > div {
+  overflow: hidden;
+}
+.leda-courts .col-sm-6[style*='darkblue'] {
+  background: #12346b !important;
+}
+.leda-courts .col-sm-6[style*='darkred'] {
+  background: #642632 !important;
+}
+.leda-courts .chang_di_hao {
+  background: #26334a !important;
+  color: #e1eaf8 !important;
+  font-weight: 600 !important;
+}
+.leda-courts .gamer_select {
+  min-height: 0;
+  line-height: 1.1;
+  appearance: auto !important;
+  -webkit-appearance: menulist !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 5px;
+  padding: 2px 8px !important;
+  cursor: pointer;
+}
+.leda-courts .game-score {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+.leda-impact {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  right: 5px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: rgba(7, 14, 28, 0.55);
+  color: #e4efff;
+  font-size: 1.6vh;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.ctrl_btn {
+  font-size: 18px !important;
+  margin: 4px !important;
+}
+.modal-content {
+  background: #152135;
+  color: #eef3fa;
+  border: 1px solid #40516b;
+  border-radius: 12px;
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.45);
+}
+.modal-title {
+  font-weight: 600;
+}
+.modal-body {
+  padding: 24px;
+}
+.modal-backdrop.in {
+  opacity: 0.65;
+}
+
+/* Sensor diagnostics is isolated from the vendor's table and button styles. */
+.leda-training > .row:first-child {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #2c3b52;
+  background: #101c2e;
+}
+.leda-training > .row:first-child > .col-sm-8 {
+  font-size: 26px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.5px;
+}
+.leda-training > .row:first-child > .col-sm-2:last-child {
+  font-size: 14px !important;
+  color: #9bacc4;
+  padding-right: 20px !important;
+}
+.leda-training-controls {
+  border-top: 1px solid #35435b;
+  background: #101c2e;
+  min-height: 76px;
+}
+.leda-training-controls > .row {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 8px 14px !important;
+  gap: 12px;
+}
+.leda-training-controls > .row > .col-sm-5:first-child {
+  width: 28%;
+}
+.leda-training-controls > .row > .col-sm-2 {
+  width: 150px;
+  flex-shrink: 0;
+}
+.leda-training-controls > .row > .col-sm-5:last-child {
+  flex: 1;
+  width: auto;
+}
+.leda-training-controls .leda-round {
+  width: 48px !important;
+  height: 48px !important;
+  line-height: 46px;
+  font-size: 24px !important;
+  background: #263c5d !important;
+  color: #c9def7 !important;
+  border: 1px solid #415b7c;
+  border-radius: 8px !important;
+}
+.leda-training-controls .col-sm-9 > span {
+  font-size: 20px !important;
+  color: #9ad8c4 !important;
+}
+.leda-training-controls .leda-timer {
+  height: 54px !important;
+  line-height: 54px;
+  font-size: 34px !important;
+  background: #1b304e !important;
+  color: #f0f5fc !important;
+  border: 1px solid #3a5377;
+  border-radius: 8px !important;
+  font-variant-numeric: tabular-nums;
+}
+.leda-training-controls .leda-timer span {
+  color: inherit !important;
+}
+.leda-training-controls .ctrl_btn {
+  margin-top: 0 !important;
+  font-size: 15px !important;
+}
+.leda-sensor-launcher {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  z-index: 1020;
+  font-size: 14px;
+}
+.leda-sensor-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1100;
+  padding: 32px;
+  background: rgba(4, 9, 19, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.leda-sensor-overlay[hidden] {
+  display: none !important;
+}
+.leda-sensor-dialog {
+  width: 100%;
+  max-width: 1220px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: #111c2e;
+  color: #e8edf6;
+  border: 1px solid #34445c;
+  border-radius: 16px;
+  box-shadow: 0 24px 100px rgba(0, 0, 0, 0.5);
+  font-size: 14px;
+  text-align: left;
+}
+.leda-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 28px;
+  border-bottom: 1px solid #2b3a50;
+}
+.leda-dialog-header h2 {
+  margin: 5px 0 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.leda-eyebrow {
+  color: #8badd8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+.leda-dialog-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+}
+.leda-dialog-body h3 {
+  margin: 24px 0 7px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.leda-muted {
+  color: #9fb0c8;
+}
+.leda-sensor-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.leda-badge {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.leda-badge-success {
+  background: #173b36;
+  color: #83dfbc;
+}
+.leda-badge-muted {
+  background: #27344a;
+  color: #b6c4d7;
+}
+.leda-threshold-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.leda-threshold-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 155px;
+  margin: 0;
+  padding: 14px;
+  background: #18253b;
+  border: 1px solid #30415b;
+  border-radius: 8px;
+  font-weight: 500;
+}
+.leda-threshold-field input {
+  width: 100%;
+  max-width: 140px;
+  padding: 7px 10px;
+  font-size: 20px;
+  font-weight: 600;
+}
+.leda-threshold-field small {
+  color: #9fb0c8;
+  font-size: 12px;
+}
+.leda-readings-scroll {
+  overflow-x: auto;
+  margin-top: 14px;
+  border: 1px solid #2d3d55;
+  border-radius: 8px;
+}
+.leda-readings {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.leda-readings th {
+  padding: 11px 14px;
+  background: #1d2c43;
+  color: #aebed3;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+.leda-readings td {
+  padding: 12px 14px;
+  border-top: 1px solid #26364d;
+  font-size: 13px;
+}
+.leda-readings tr:hover {
+  background: #17263d;
+}
+.leda-readings .leda-number {
+  text-align: right;
+  font-weight: 600;
+}
+.leda-reading-time {
+  display: block;
+  color: #a4b5cc;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.leda-readings code {
+  background: transparent;
+  color: #e8edf6;
+  padding: 0;
+  font-size: 12px;
+}
+.leda-empty-state {
+  padding: 36px 24px;
+  text-align: center;
+  color: #b8c9df;
+}
+.leda-empty-state p {
+  margin-top: 8px;
+  color: #92a5c0;
+}
+.leda-sensor-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 22px;
+  color: #9dafc8;
+  font-size: 12px;
+}
+.leda-sensor-footer p {
+  margin: 0;
+  max-width: 640px;
+}
+.leda-sensor-footer button {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.leda-notification {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 720px;
+  z-index: 1200;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 16px 20px;
+  background: #233750;
+  color: white;
+  border: 1px solid #627f9e;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  white-space: pre-line;
+}
+.leda-notification span {
+  flex: 1;
+}
+.leda-notification button {
+  background: transparent;
+  border: 1px solid #7890ac;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 5px;
+}
+
+@media (max-width: 900px) {
+  .leda-athletes {
+    padding: 16px 12px;
+    overflow-x: auto;
+  }
+  .leda-athletes tr td {
+    padding: 10px 8px;
+  }
+  .leda-sensor-overlay {
+    padding: 12px;
+  }
+  .leda-dialog-header,
+  .leda-dialog-body {
+    padding: 18px;
+  }
+  .leda-threshold-field {
+    min-width: 130px;
+  }
+  .leda-sensor-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .ctrl_btn,
+  .leda-button {
+    transition: none;
+  }
+}

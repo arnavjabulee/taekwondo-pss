@@ -8,7 +8,7 @@ This is an interface localisation of the supplied distribution, not a rebuild of
 
 The CSV `Athletes-English.csv` shows the English import headers. English and original Chinese headers are supported by the translated importer. Athlete records saved previously can still contain Chinese names and titles.
 
-To reproduce the package, run `python tools/build_english.py`. This refreshes the English copy from the original, so save any runtime data from that copy before rebuilding. Run `node tools/verify_scoring.cjs` to check JavaScript syntax and the original and translated scoring handlers.
+To reproduce the package, run `python tools/build_english.py`. Rebuilding updates interface assets and preserves the working copy’s runtime data. Run `node tools/verify_scoring.cjs` to check JavaScript syntax and the original and translated scoring handlers.
 
 The build translates 26 JavaScript bundles and the HTML title/language. Spreadsheet encoding tables and legacy sex markers in the weight-category parser are preserved. Receiver communication is preserved. Court assignments now control blue/red hit routing; point values and thresholds remain unchanged.
 
@@ -24,3 +24,5 @@ Body thresholds can now be entered directly from 0 to 71 levels (raw 0–2840), 
 Pressure-only/no-socks: no documented RFID/NFC bypass command was found in the supplied app. The support-check button explains this; it does not enable a device mode. The scoring code already accepts received impact values without a sock check. Compare gentle impacts with and without socks in Listen for hits. No sockless messages could indicate filtering upstream, but does not isolate firmware from receiver, connectivity, or sensor behaviour. Identifying an actual bypass requires protocol/firmware support or controlled captures from a known pressure-only mode. No guessed WriteParams or gate/level changes were sent.
 
 Validation: node tools/verify_sensors.cjs checks monitoring while stopped, parsing, higher thresholds, persistence, panel lifecycle, and the exact start/stop commands. No physical sensors were exercised.
+
+Source layout: `src/runtime` contains protocol, court, sensor and presentation modules; `src/styles` holds the theme; `src/integration` contains vendor-view render expressions. `src/translations.json` is the translation source. `tools/build_english.py` integrates these with the original package. Run `pnpm test` for logic/build checks and `pnpm test:ui` for isolated browser checks (requires Playwright and Microsoft Edge).
