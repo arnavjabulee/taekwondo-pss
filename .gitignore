@@ -1,0 +1,16 @@
+# Vendor distribution and generated runnable package contain binaries/runtime data.
+/LedaSportXunLian_V202/
+/LedaSport-English/
+
+# Intermediate reverse-engineering output.
+/strings-zh.txt
+
+# Python / editor / local configuration.
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
