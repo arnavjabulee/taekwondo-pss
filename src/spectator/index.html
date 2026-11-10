@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Competition — Spectator display</title>
+    <link rel="stylesheet" href="spectator.css?v=8" />
+  </head>
+  <body>
+    <div class="display-controls">
+      <button id="close-display" type="button">Close display</button>
+    </div>
+    <main class="scoreboard" aria-label="Competition spectator scoreboard">
+      <header class="event-header">
+        <span id="event-title">Competition</span
+        ><button id="fullscreen" type="button">Full screen</button>
+      </header>
+      <section id="training-board">
+        <div id="training-status"></div>
+        <div id="training-cards"></div>
+      </section>
+      <section class="test-mode" aria-label="Protector testing">
+        <div class="test-person test-blue">
+          <h1 id="test-blue-name">Blue</h1>
+          <div class="test-device test-head" id="test-blue-head">
+            <div class="protector-shape circle">HEAD</div>
+            <div class="test-reading"></div>
+            <div class="test-status"></div>
+          </div>
+          <div class="test-device test-body" id="test-blue-body">
+            <div class="protector-shape square">BODY</div>
+            <div class="test-reading"></div>
+            <div class="test-status"></div>
+          </div>
+        </div>
+        <div class="test-person test-red">
+          <h1 id="test-red-name">Red</h1>
+          <div class="test-device test-head" id="test-red-head">
+            <div class="protector-shape circle">HEAD</div>
+            <div class="test-reading"></div>
+            <div class="test-status"></div>
+          </div>
+          <div class="test-device test-body" id="test-red-body">
+            <div class="protector-shape square">BODY</div>
+            <div class="test-reading"></div>
+            <div class="test-status"></div>
+          </div>
+        </div>
+        <div id="test-mode-status" role="status">Assign protectors to begin testing.</div>
+      </section>
+      <section class="score-side blue" aria-label="Blue competitor">
+        <h1>
+          <span
+            class="leader-light"
+            id="blue-leading"
+            role="img"
+            aria-label="Blue lead indicator"
+          ></span
+          ><span id="blue-name">Blue</span>
+        </h1>
+        <div class="points" id="blue-score">0</div>
+        <div class="weak-meter-slot">
+          <div class="weak-meter" id="blue-weak-meter" style="display: none">
+            <div class="weak-track">
+              <span class="threshold-mark"><b></b></span><span class="measured-mark"><b></b></span>
+            </div>
+          </div>
+        </div>
+        <div class="side-totals">
+          <div>
+            <div class="weak-summary" aria-label="Blue below-threshold hits">
+              <small>BELOW THRESHOLD</small>
+              <div>
+                <span class="weak-icon circle" title="Head"></span><span id="blue-weak-head">0</span
+                ><span class="weak-icon square" title="Body"></span
+                ><span id="blue-weak-body">0</span>
+              </div>
+            </div>
+            <span>GAM-JEOM</span><strong id="blue-gam-jeoms">0</strong>
+          </div>
+          <div><span>ROUNDS WON</span><strong id="blue-wins">0</strong></div>
+        </div>
+      </section>
+      <section class="match-centre">
+        <div class="clock-block">
+          <div id="phase">Waiting for panel</div>
+          <div id="clock">00:00</div>
+        </div>
+        <div class="round-block">
+          <span>ROUND</span><strong id="round">1</strong><span id="best-of">Best of 3</span>
+        </div>
+        <div id="outcome" role="status"></div>
+      </section>
+      <section class="score-side red" aria-label="Red competitor">
+        <h1>
+          <span
+            class="leader-light"
+            id="red-leading"
+            role="img"
+            aria-label="Red lead indicator"
+          ></span
+          ><span id="red-name">Red</span>
+        </h1>
+        <div class="points" id="red-score">0</div>
+        <div class="weak-meter-slot">
+          <div class="weak-meter" id="red-weak-meter" style="display: none">
+            <div class="weak-track">
+              <span class="threshold-mark"><b></b></span><span class="measured-mark"><b></b></span>
+            </div>
+          </div>
+        </div>
+        <div class="side-totals">
+          <div><span>ROUNDS WON</span><strong id="red-wins">0</strong></div>
+          <div>
+            <div class="weak-summary" aria-label="Red below-threshold hits">
+              <small>BELOW THRESHOLD</small>
+              <div>
+                <span class="weak-icon circle" title="Head"></span><span id="red-weak-head">0</span
+                ><span class="weak-icon square" title="Body"></span
+                ><span id="red-weak-body">0</span>
+              </div>
+            </div>
+            <span>GAM-JEOM</span><strong id="red-gam-jeoms">0</strong>
+          </div>
+        </div>
+      </section>
+      <footer class="round-results">
+        <div id="results"></div>
+        <span id="connection" role="status">Waiting for the competition panel…</span>
+      </footer>
+    </main>
+    <script src="spectator-display.js?v=8"></script>
+  </body>
+</html>

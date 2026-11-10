@@ -1,0 +1,543 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+button {
+  font: inherit;
+}
+.scoreboard {
+  position: absolute;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+}
+.event-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 97.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10.8px 230.4px;
+  text-align: center;
+  font-size: 44.16px;
+  font-weight: 700;
+  overflow: hidden;
+}
+.event-header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.event-header button {
+  position: absolute;
+  right: 19.2px;
+  top: 10.8px;
+  border: 1px solid #888;
+  color: #fff;
+  background: #222;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.event-header:hover button,
+.event-header button:focus {
+  opacity: 1;
+}
+.score-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: absolute;
+  top: 97.2px;
+  width: 729.6px;
+  height: 874.8px;
+  padding: 0 38.4px 21.6px;
+}
+.blue {
+  left: 0;
+  background: linear-gradient(135deg, #142aa5, #1429de 55%, #08114f);
+}
+.red {
+  right: 0;
+  background: linear-gradient(225deg, #a40b0b, #ef1a0d 55%, #530606);
+}
+.score-side h1 {
+  font-size: 67.2px;
+  margin: 0 -38.4px;
+  padding: 21.6px 19.2px;
+  background: rgba(0, 0, 0, 0.22);
+  height: 17%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+}
+.points {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 422.4px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.points.compact {
+  font-size: 268.8px;
+}
+.side-totals {
+  display: flex;
+  justify-content: space-between;
+  gap: 19.2px;
+}
+.side-totals > div {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+.side-totals span {
+  font-size: 24px;
+  font-weight: 700;
+}
+.side-totals strong {
+  font-size: 76.8px;
+  line-height: 1.2;
+}
+.match-centre {
+  position: absolute;
+  left: 729.6px;
+  top: 97.2px;
+  width: 460.8px;
+  height: 874.8px;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  min-width: 0;
+  background: #000;
+}
+.clock-block {
+  background: #fff500;
+  color: #000;
+  padding: 32.4px 7.68px 10.8px;
+  margin-top: 16%;
+  font-weight: 800;
+}
+.clock-block #phase {
+  font-size: 48px;
+}
+#clock {
+  font-size: 134.4px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+.round-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 43.2px;
+  gap: 8.64px;
+}
+.round-block > span:first-child {
+  font-size: 44.16px;
+  font-weight: 700;
+}
+.round-block strong {
+  font-size: 115.2px;
+  line-height: 1;
+}
+.round-block #best-of {
+  font-size: 26.88px;
+  color: #ccc;
+}
+#outcome {
+  margin: auto 19.2px 21.6px;
+  font-size: 38.4px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.round-results {
+  position: absolute;
+  top: 972px;
+  left: 0;
+  width: 1920px;
+  height: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8.64px;
+  padding: 10.8px;
+  font-size: 24.96px;
+}
+#results {
+  display: flex;
+  gap: 38.4px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+#results span {
+  border-bottom: 3px solid #aaa;
+  padding: 5.4px 19.2px;
+}
+#results .blue-result {
+  border-color: #527dff;
+}
+#results .red-result {
+  border-color: #ff6655;
+}
+#connection {
+  color: #bbb;
+  font-size: 19.2px;
+}
+.winner {
+  box-shadow: inset 0 0 0 5px #fff500;
+}
+.scoreboard.running #connection {
+  visibility: hidden;
+}
+:fullscreen .event-header button {
+  display: none;
+}
+
+#results span {
+  margin: 0 9.6px;
+}
+
+.event-header button {
+  opacity: 0.65;
+}
+.event-header button:hover {
+  opacity: 1;
+}
+/* Fixed coordinates keep the test view compatible with the embedded browser. */
+.test-mode {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 97.2px;
+  width: 1920px;
+  height: 982.8px;
+  background: #000;
+}
+.testing .test-mode {
+  display: block;
+}
+.testing > .score-side,
+.testing > .match-centre,
+.testing > .round-results {
+  display: none;
+}
+.test-person {
+  position: absolute;
+  top: 10px;
+  width: 680px;
+  height: 850px;
+  text-align: center;
+}
+.test-blue {
+  left: 100px;
+}
+.test-red {
+  right: 100px;
+}
+.test-person h1 {
+  margin: 12px 0;
+  height: 90px;
+  overflow: hidden;
+  font-size: 64px;
+}
+.test-device {
+  position: absolute;
+  left: 0;
+  width: 680px;
+  height: 330px;
+}
+.test-head {
+  top: 130px;
+}
+.test-body {
+  top: 490px;
+}
+.protector-shape {
+  width: 190px;
+  height: 190px;
+  margin: 0 auto;
+  border: 5px solid #eee;
+  background: #1533d5;
+  color: white;
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 180px;
+}
+.test-red .protector-shape {
+  background: #dd170f;
+}
+.circle {
+  border-radius: 50%;
+}
+.square {
+  border-radius: 0;
+}
+.test-device.unassigned .protector-shape {
+  background: #333;
+  border-color: #777;
+}
+.test-device.hit .protector-shape {
+  background: #fff500;
+  color: #000;
+  border-color: #fff500;
+}
+.test-reading {
+  margin-top: 12px;
+  font-size: 56px;
+  font-weight: bold;
+}
+.test-status {
+  font-size: 24px;
+  color: #ccc;
+}
+#test-mode-status {
+  position: absolute;
+  bottom: 24px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 30px;
+  color: #ccc;
+}
+.display-controls {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 100;
+}
+.display-controls button {
+  border: 1px solid #aaa;
+  background: #222;
+  color: white;
+  padding: 10px 16px;
+  font:
+    16px Arial,
+    sans-serif;
+  cursor: pointer;
+}
+.event-header #fullscreen {
+  right: 180px;
+}
+.points {
+  font-size: 360px;
+}
+.weak-meter-slot {
+  height: 115px;
+  flex: 0 0 115px;
+  padding: 10px 0;
+}
+.weak-meter-label {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+.weak-track {
+  position: relative;
+  height: 20px;
+  margin: 0 10px;
+  background: linear-gradient(to right, #4a0000, #b21616 25%, #e6841a 50%, #ecd931 70%, #158c38);
+  border: 1px solid #ddd;
+}
+.threshold-mark {
+  position: absolute;
+  top: -7px;
+  height: 32px;
+  width: 4px;
+  margin-left: -2px;
+  background: #000;
+  border: 1px solid #fff;
+}
+.measured-mark {
+  position: absolute;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  background: #fff;
+  border: 3px solid #111;
+  border-radius: 50%;
+}
+.weak-meter-key {
+  font-size: 18px;
+  text-align: center;
+  margin-top: 9px;
+}
+.weak-summary {
+  margin-bottom: 12px;
+}
+.weak-summary small {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.weak-icon {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background: #eee;
+  border: 2px solid #fff;
+  margin: 0 6px 0 10px;
+  vertical-align: middle;
+}
+.weak-summary > div {
+  white-space: nowrap;
+}
+.side-totals {
+  min-height: 185px;
+  align-items: flex-end;
+}
+.points.compact {
+  font-size: 240px;
+}
+.leader-light {
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  margin-right: 18px;
+  border: 3px solid #555;
+  border-radius: 50%;
+  background: #333;
+  flex: 0 0 30px;
+}
+.leader-light.lit {
+  background: #20f164;
+  border-color: #8bffb1;
+  box-shadow: 0 0 14px #11ab41;
+}
+#clock.subseconds {
+  font-size: 112px;
+}
+
+.weak-meter {
+  padding-top: 60px;
+}
+.weak-track b {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding-bottom: 12px;
+  font-size: 28px;
+  line-height: 1;
+  color: white;
+}
+.threshold-mark b {
+  padding-bottom: 38px;
+}
+#clock {
+  font-variant-numeric: tabular-nums;
+}
+#training-board {
+  display: none;
+  position: absolute;
+  top: 90px;
+  left: 0;
+  width: 1920px;
+  height: 910px;
+}
+.training #training-board {
+  display: block;
+}
+.training .score-side,
+.training .match-centre,
+.training #results {
+  display: none;
+}
+#training-status {
+  height: 70px;
+  font-size: 40px;
+  text-align: center;
+  padding: 10px;
+}
+#training-cards {
+  position: absolute;
+  top: 80px;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+}
+.training-card {
+  position: absolute;
+  border: 5px solid #000;
+  padding-top: 42px;
+}
+.training-court-title {
+  position: absolute;
+  top: 0;
+  height: 42px;
+  width: 100%;
+  text-align: center;
+  font-size: 28px;
+  background: #222;
+}
+.training-person {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+  width: 50%;
+  height: 100%;
+  vertical-align: top;
+  overflow: hidden;
+}
+.training-person.blue {
+  background: #1427a8;
+}
+.training-person.red {
+  background: #af160f;
+}
+.training-person.neutral {
+  background: #172b40;
+  width: 100%;
+}
+.training-person h2 {
+  margin: 8px;
+  max-width: 95%;
+  font-size: 0.36em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.training-person strong {
+  font-size: 1.8em;
+  line-height: 1;
+}
+.training-person small {
+  font-size: 0.22em;
+}
+.individual {
+  padding-top: 0;
+}
+
+.training-person h2,
+.training-person strong,
+.training-person small {
+  flex-shrink: 0;
+}

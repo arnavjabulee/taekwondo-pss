@@ -30,5 +30,16 @@
     timeout = root.setTimeout(dismiss, 12000);
   }
 
-  root.LEDA_UI = { notify: notify };
+  function cleanDefaults(info) {
+    // Migrate only built-in titles; never rename a user's team or athletes.
+    if (
+      /^(Training|Taekwondo|Bristol Taekwondo Electronic Training Suite|跆\s*拳\s*道|乐打智能体育|南京乐打体育科技有限公司)$/.test(
+        info.game_name || ''
+      )
+    ) {
+      info.game_name = root.LEDA_CORE.APP_NAME;
+    }
+  }
+
+  root.LEDA_UI = { notify: notify, cleanDefaults: cleanDefaults };
 })(window);

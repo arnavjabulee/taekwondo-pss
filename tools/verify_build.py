@@ -13,7 +13,31 @@ build = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(build)
 
 assets = build.build_assets()
-assert "leda-athletes" in assets["170.index.js"]
+assert "free-training.js" in assets
+assert 'equipment.js' in assets and 'modes.js' in assets
+assert 'equipment-page.js' in assets
+assert 'competition.js' in assets
+assert 'spectator.js' in assets and 'spectator.html' in assets
+assert 'spectator-display.js' in assets and 'spectator.css' in assets
+assert 'display: grid' not in assets['spectator.css']
+assert 'grid-template' not in assets['spectator.css']
+assert 'PSS_SPECTATOR.detach(this)' in assets['45.index.js']
+assert 'connection.js' in assets
+assert 'PSS_CONNECTION.attach(this,$s.Z)' in assets['index.js']
+assert 'window.OnConnectEvent=function(){}' in assets['index.js']
+assert 'PSS_CONNECTION.detachController(this)' in assets['45.index.js']
+assert 'index.js' not in assets['spectator.html']
+assert 'PSS_COMPETITION.attach(this,s.Z)' in assets['45.index.js']
+assert 'PSS_COMPETITION.renderSettings(t,e)' in assets['45.index.js']
+assert 'PSS_EQUIPMENT_PAGE.createComponent()' in assets['index.js']
+for name in ['controller-fixes.js','modes.js','free-training.js','equipment.js']:
+    assert 'ReadGameData' not in assets[name], name
+assert 'Existing athlete' not in assets['free-training.js']
+assert 'setParticipantEquipment' in assets['45.index.js']
+assert 'PSS_EQUIPMENT.battery(r)' in assets['index.js']
+assert 'name:"CompetitionSetup"' in assets['index.js']
+assert "PSS_FREE_TRAINING.createComponent(a(8462).Z)" in assets["index.js"]
+assert 'destination||"GameData"' in assets["744.index.js"]
 assert "leda-impact" in assets["777.index.js"]
 assert assets["index.html"].index("pss-core.js") < assets["index.html"].index(
     "controller-fixes.js"
@@ -25,7 +49,9 @@ try:
 except ValueError:
     pass
 
-with tempfile.TemporaryDirectory() as directory:
+test_root = Path(__file__).resolve().parents[1] / "test-results"
+test_root.mkdir(exist_ok=True)
+with tempfile.TemporaryDirectory(dir=test_root) as directory:
     build.OUTPUT = Path(directory)
     sentinels = [
         "config",

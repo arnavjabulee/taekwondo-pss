@@ -1,11 +1,26 @@
 /* Shared protocol and court helpers. Keep ES5 syntax for the vendor browser. */
 (function (root) {
   'use strict';
+  var app =
+    typeof module !== 'undefined' && module.exports ? require('../app.json') : root.PSS_APP_CONFIG;
 
   var MAX_LEVEL = 71;
   var RAW_PER_LEVEL = 40;
   var COURT_COUNT = 16;
   var DEVICE_TOPICS = ['huju', 'xlhuju', 'toukui', 'xltoukui'];
+  var PARTICIPANT_COUNTERS = [
+    'score',
+    'tkhits',
+    'hjhits',
+    'valid',
+    'warning',
+    'technical_body',
+    'technical_head',
+    'body_points',
+    'head_points',
+    'weak_body',
+    'weak_head'
+  ];
 
   function normalizeId(value) {
     return String(value || '')
@@ -60,7 +75,7 @@
     return Math.round(Number(value) * RAW_PER_LEVEL);
   }
 
-  function emptyAthlete() {
+  function emptyParticipant() {
     return {
       index: '',
       gamer: '',
@@ -71,22 +86,32 @@
       hjhits: 0,
       valid: 0,
       warning: 0,
+      technical_body: 0,
+      technical_head: 0,
+      body_points: 0,
+      head_points: 0,
+      weak_body: 0,
+      weak_head: 0,
+      last_weak: null,
       last_hit: null
     };
   }
 
   var api = {
+    APP_NAME: app.name,
     MAX_LEVEL: MAX_LEVEL,
     RAW_PER_LEVEL: RAW_PER_LEVEL,
     COURT_COUNT: COURT_COUNT,
     DEVICE_TOPICS: DEVICE_TOPICS,
+    PARTICIPANT_COUNTERS: PARTICIPANT_COUNTERS,
     normalizeId: normalizeId,
     parseImpact: parseImpact,
     findEquipment: findEquipment,
     parseLevel: parseLevel,
     savedLevel: savedLevel,
     rawThreshold: rawThreshold,
-    emptyAthlete: emptyAthlete
+    emptyParticipant: emptyParticipant,
+    emptyAthlete: emptyParticipant
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

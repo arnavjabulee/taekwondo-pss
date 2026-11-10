@@ -1,13 +1,14 @@
 {
-  "name": "leda-pss",
+  "name": "uobtkd-training-suite",
   "version": "1.0.0",
   "private": true,
-  "description": "English court training interface for Leda Sport v2.02",
+  "description": "UoBTKD Training Suite",
   "scripts": {
-    "test": "python tools/verify_build.py && node tools/verify_core.cjs && node tools/verify_controller.cjs && node tools/verify_scoring.cjs && node tools/verify_sensors.cjs",
+    "test": "python tools/verify_build.py && node tools/verify_core.cjs && node tools/verify_connection.cjs && node tools/verify_live_display.cjs && node tools/verify_equipment.cjs && node tools/verify_equipment_bindings.cjs && node tools/verify_modes.cjs && node tools/verify_competition_controls.cjs && node tools/verify_competition_series.cjs && node tools/verify_competition_tiebreak.cjs && node tools/verify_spectator.cjs && node tools/verify_display_close.cjs && node tools/verify_audio.cjs && node tools/verify_free_training.cjs && node tools/verify_controller.cjs && node tools/verify_scoring.cjs && node tools/verify_sensors.cjs",
     "format": "prettier --write src tools/*.cjs package.json",
     "format:check": "prettier --check src tools/*.cjs package.json",
-    "test:ui": "node tools/verify_ui.cjs"
+    "test:ui": "node tools/verify_ui.cjs",
+    "test:native": "python tools/verify_native.py"
   },
   "devDependencies": {
     "playwright": "1.62.1",

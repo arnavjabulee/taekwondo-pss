@@ -176,7 +176,11 @@
       var row = element('tr', null, body);
       var device = element('td', null, row);
       element('span', hit.time, device, 'leda-reading-time');
-      element('code', hit.id, device);
+      if (root.PSS_EQUIPMENT)
+        action(root.PSS_EQUIPMENT.label(hit.id), device, function () {
+          root.PSS_EQUIPMENT.open(hit.id);
+        });
+      else element('code', hit.id, device);
       element(
         'td',
         assignment
@@ -274,8 +278,12 @@
     var fields = element('div', null, settings, 'leda-threshold-grid');
     controller.gvi.game.forEach(function (court, index) {
       if (
-        !root.LEDA_CONTROLLER_FIXES.assigned(court.left) &&
-        !root.LEDA_CONTROLLER_FIXES.assigned(court.right)
+        !court.left.gamer &&
+        !court.left.huju &&
+        !court.left.toukui &&
+        !court.right.gamer &&
+        !court.right.huju &&
+        !court.right.toukui
       )
         return;
       thresholdInput(fields, 'Court ' + (index + 1) + ' / body', court.lidu, function (value) {
@@ -377,6 +385,7 @@
   }
 
   var api = {
+    close: close,
     isOpen: function () {
       return !!panel && !panel.hidden;
     },
