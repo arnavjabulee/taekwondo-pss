@@ -3,7 +3,7 @@
   'use strict';
 
   var core =
-    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.LEDA_CORE;
+    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.UOBTKD_CORE;
   var MAX_READINGS = 40;
   var controller = null;
   var store = null;
@@ -14,7 +14,7 @@
   var previousFocus = null;
 
   function notify(message) {
-    if (root.LEDA_UI) root.LEDA_UI.notify(message);
+    if (root.UOBTKD_UI) root.UOBTKD_UI.notify(message);
     else root.alert(message);
   }
 
@@ -113,7 +113,7 @@
       'button',
       text,
       parent,
-      'leda-button' + (primary ? ' leda-button-primary' : '')
+      'uobtkd-button' + (primary ? ' uobtkd-button-primary' : '')
     );
     node.type = 'button';
     node.onclick = callback;
@@ -153,7 +153,7 @@
     var container = panel.querySelector('[data-events]');
     container.textContent = '';
     if (!events.length) {
-      var empty = element('div', null, container, 'leda-empty-state');
+      var empty = element('div', null, container, 'uobtkd-empty-state');
       element('strong', 'Ready for the next impact', empty);
       element(
         'p',
@@ -162,7 +162,7 @@
       );
       return;
     }
-    var table = element('table', null, container, 'leda-readings');
+    var table = element('table', null, container, 'uobtkd-readings');
     var head = element('thead', null, table);
     var heading = element('tr', null, head);
     ['Time / device', 'Court / sensor', 'Raw impact', 'Level', 'Threshold', 'Result'].forEach(
@@ -175,7 +175,7 @@
       var assignment = hit.assignment;
       var row = element('tr', null, body);
       var device = element('td', null, row);
-      element('span', hit.time, device, 'leda-reading-time');
+      element('span', hit.time, device, 'uobtkd-reading-time');
       if (root.PSS_EQUIPMENT)
         action(root.PSS_EQUIPMENT.label(hit.id), device, function () {
           root.PSS_EQUIPMENT.open(hit.id);
@@ -188,22 +188,22 @@
           : 'Unassigned',
         row
       );
-      element('td', String(hit.value), row, 'leda-number');
-      element('td', (hit.value / core.RAW_PER_LEVEL).toFixed(2), row, 'leda-number');
-      element('td', assignment ? String(assignment.threshold) : '--', row, 'leda-number');
+      element('td', String(hit.value), row, 'uobtkd-number');
+      element('td', (hit.value / core.RAW_PER_LEVEL).toFixed(2), row, 'uobtkd-number');
+      element('td', assignment ? String(assignment.threshold) : '--', row, 'uobtkd-number');
       var result = element('td', null, row);
       var passes = assignment && hit.value >= assignment.threshold;
       element(
         'span',
         assignment ? (passes ? 'Meets threshold' : 'Below threshold') : 'Not assigned',
         result,
-        'leda-badge ' + (passes ? 'leda-badge-success' : 'leda-badge-muted')
+        'uobtkd-badge ' + (passes ? 'uobtkd-badge-success' : 'uobtkd-badge-muted')
       );
     });
   }
 
   function thresholdInput(parent, title, value, commit) {
-    var label = element('label', null, parent, 'leda-threshold-field');
+    var label = element('label', null, parent, 'uobtkd-threshold-field');
     element('span', title, label);
     var input = element('input', null, label);
     input.type = 'number';
@@ -240,15 +240,15 @@
 
   function render() {
     panel.textContent = '';
-    var dialog = element('div', null, panel, 'leda-sensor-dialog');
-    var header = element('header', null, dialog, 'leda-dialog-header');
+    var dialog = element('div', null, panel, 'uobtkd-sensor-dialog');
+    var header = element('header', null, dialog, 'uobtkd-dialog-header');
     var title = element('div', null, header);
-    element('span', 'LIVE DIAGNOSTICS', title, 'leda-eyebrow');
+    element('span', 'LIVE DIAGNOSTICS', title, 'uobtkd-eyebrow');
     var heading = element('h2', 'Sensor levels', title);
-    heading.id = 'leda-sensor-title';
+    heading.id = 'uobtkd-sensor-title';
     action('Close', header, close).setAttribute('aria-label', 'Close sensor levels');
-    var content = element('div', null, dialog, 'leda-dialog-body');
-    var toolbar = element('div', null, content, 'leda-sensor-toolbar');
+    var content = element('div', null, dialog, 'uobtkd-dialog-body');
+    var toolbar = element('div', null, content, 'uobtkd-sensor-toolbar');
     var status = listening
       ? 'Listening'
       : controller.gvi.game_state === 2
@@ -260,22 +260,22 @@
       'span',
       status,
       toolbar,
-      'leda-badge ' + (store.IS_ONLINE ? 'leda-badge-success' : 'leda-badge-muted')
+      'uobtkd-badge ' + (store.IS_ONLINE ? 'uobtkd-badge-success' : 'uobtkd-badge-muted')
     );
     action(listening ? 'Stop listening' : 'Listen for hits', toolbar, listen, true);
     action('Clear readings', toolbar, function () {
       events = [];
       renderEvents();
     });
-    var settings = element('section', null, content, 'leda-threshold-section');
+    var settings = element('section', null, content, 'uobtkd-threshold-section');
     element('h3', 'Impact thresholds', settings);
     element(
       'p',
       'Higher levels require stronger contact. Range 0–71. One level equals 40 raw units.',
       settings,
-      'leda-muted'
+      'uobtkd-muted'
     );
-    var fields = element('div', null, settings, 'leda-threshold-grid');
+    var fields = element('div', null, settings, 'uobtkd-threshold-grid');
     controller.gvi.game.forEach(function (court, index) {
       if (
         !court.left.gamer &&
@@ -306,10 +306,10 @@
       'p',
       'Latest 40 messages. Readings are uncapped; thresholds are saved at the time of each hit.',
       readings,
-      'leda-muted'
+      'uobtkd-muted'
     );
-    element('div', null, readings, 'leda-readings-scroll').setAttribute('data-events', '');
-    var footer = element('footer', null, content, 'leda-sensor-footer');
+    element('div', null, readings, 'uobtkd-readings-scroll').setAttribute('data-events', '');
+    var footer = element('footer', null, content, 'uobtkd-sensor-footer');
     element(
       'p',
       'Listen without starting the scoring timer. Values are sensor readings, not calibrated force measurements.',
@@ -349,17 +349,17 @@
       'button',
       'Sensor levels',
       root.document.body,
-      'leda-sensor-launcher leda-button'
+      'uobtkd-sensor-launcher uobtkd-button'
     );
     button.type = 'button';
     button.setAttribute('aria-expanded', 'false');
-    button.setAttribute('aria-controls', 'leda-sensor-panel');
-    panel = element('section', null, root.document.body, 'leda-sensor-overlay');
-    panel.id = 'leda-sensor-panel';
+    button.setAttribute('aria-controls', 'uobtkd-sensor-panel');
+    panel = element('section', null, root.document.body, 'uobtkd-sensor-overlay');
+    panel.id = 'uobtkd-sensor-panel';
     panel.hidden = true;
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
-    panel.setAttribute('aria-labelledby', 'leda-sensor-title');
+    panel.setAttribute('aria-labelledby', 'uobtkd-sensor-title');
     button.onclick = function () {
       previousFocus = root.document.activeElement;
       panel.hidden = false;
@@ -403,5 +403,5 @@
     }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else root.LEDA_SENSOR_MONITOR = api;
+  else root.UOBTKD_SENSOR_MONITOR = api;
 })(typeof window !== 'undefined' ? window : globalThis);

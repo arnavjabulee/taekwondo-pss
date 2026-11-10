@@ -9,9 +9,9 @@ import struct
 from PIL import Image, ImageChops
 
 root = Path(__file__).resolve().parents[1]
-source = next((root / "LedaSportXunLian_V202").glob("*.exe"))
+source = next((root / "vendor-source").glob("*.exe"))
 app_name = json.loads((root / "src/app.json").read_text(encoding="utf-8"))["name"]
-prepared = root / "LedaSport-English/native-update" / (app_name + '.exe')
+prepared = root / "UoBTKD Training Suite/native-update" / (app_name + '.exe')
 original = source.read_bytes()
 modified = prepared.read_bytes()
 assert b'level="requireAdministrator"' in original
@@ -62,7 +62,7 @@ for index,label in enumerate([b'HostCloseDisplay\0',b'HostFocusDisplay\0']):
 back=trampoline+48
 assert modified[back]==0xe9
 assert back+5+struct.unpack_from('<i',modified,back+1)[0]==bind_site+6
-for old_title in ["体育竞赛软件 (南京本智信息科技有限公司)", "体育竞赛软件"]:
+for old_title in ["\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6 (\u5357\u4eac\u672c\u667a\u4fe1\u606f\u79d1\u6280\u6709\u9650\u516c\u53f8)", "\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6"]:
     old_offset = original.index((old_title + "\0").encode("utf-16-le"))
     old_address = image_base + rva + old_offset - raw
     anchor = b"\x68" + struct.pack("<I", old_address)
@@ -121,12 +121,14 @@ for index in range(count):
     size, offset = struct.unpack_from('<II', icon, 6 + index * 16 + 8)
     assert icon[offset:offset + size] in modified, 'Custom icon image missing from native executable'
 assert len(patch_bytes(original)) == len(original)
-assert (root / "LedaSport-English/notices/Vendor-Licence.txt").is_file()
+assert not (root / "UoBTKD Training Suite/notices/Vendor-Licence.txt").exists()
+assert b'notices/Vendor-Licence.txt' not in modified
+assert "\u4f53\u80b2\u7ade\u8d5b\u7c7b\u8f6f\u4ef6\u4f7f\u7528\u8bb8\u53ef\u534f\u8bae".encode('gbk') not in modified
 source_splash = (root / 'src/assets/splash.png').read_bytes()
 assert source_splash[:8] == b'\x89PNG\r\n\x1a\n'
 width, height = struct.unpack_from('>II', source_splash, 16)
 assert width >= 400 and height >= 260 and width * 13 == height * 20
-with Image.open(root / 'src/assets/splash.png') as artwork, Image.open(root / 'LedaSport-English/res/splash.png') as installed:
+with Image.open(root / 'src/assets/splash.png') as artwork, Image.open(root / 'UoBTKD Training Suite/res/splash.png') as installed:
     assert installed.mode == 'RGB'
     assert installed.size == (540, 351)
     expected = artwork.convert('RGB').resize((540, 351), Image.Resampling.LANCZOS)
@@ -139,5 +141,30 @@ assert splash_template in modified
 assert struct.unpack_from('<I', splash_template, 12)[0] & 0x00C00000 == 0
 assert struct.unpack_from('<I', splash_template, 72)[0] & 0x240 == 0x40
 print(
-    "Native shell checks passed: standard-user manifest, translated labels, and retained licence notice."
+    "Native shell checks passed: standard-user manifest, translated labels, and app-only About text."
 )
+
+# Branded native library must retain the original engine bytes and be the exact load target.
+import re
+library_name = app_name + '.dll'
+legacy_library = bytes.fromhex('4c65646153706f72742e646c6c').decode('ascii')
+assert (root / 'UoBTKD Training Suite' / library_name).read_bytes() == (root / 'vendor-source' / legacy_library).read_bytes()
+assert (library_name + '\0').encode('utf-16-le') in modified
+assert not (root / 'UoBTKD Training Suite' / legacy_library).exists()
+for item in (root / 'UoBTKD Training Suite').rglob('*'):
+    assert not re.search(r'[\u3400-\u9fff]', item.name), str(item)
+    assert not item.name.lower().startswith(bytes.fromhex('6c656461').decode('ascii')), str(item)
+# Read Windows version fields through its resource API.
+version = ctypes.WinDLL('version', use_last_error=True)
+version.GetFileVersionInfoSizeW.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p]
+version.GetFileVersionInfoW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p]
+version.VerQueryValueW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_uint)]
+size = version.GetFileVersionInfoSizeW(str(prepared), None)
+assert size
+buffer = ctypes.create_string_buffer(size)
+assert version.GetFileVersionInfoW(str(prepared), 0, size, buffer)
+for field in ['FileDescription','InternalName','ProductName']:
+    pointer = ctypes.c_void_p(); length = ctypes.c_uint()
+    assert version.VerQueryValueW(buffer, '\\StringFileInfo\\040904b0\\' + field, ctypes.byref(pointer), ctypes.byref(length))
+    assert ctypes.wstring_at(pointer, length.value - 1) == app_name
+print('Branding checks passed: native library, English filenames and Windows file properties.')

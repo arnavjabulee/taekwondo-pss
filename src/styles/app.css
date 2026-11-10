@@ -28,7 +28,7 @@ img,
 picture,
 svg,
 canvas,
-.leda_head,
+.uobtkd_head,
 .fa,
 .glyphicon {
   display: none !important;
@@ -41,7 +41,7 @@ input,
 select,
 .btn,
 .ctrl_btn,
-.leda-button {
+.uobtkd-button {
   font: inherit !important;
   color: #111 !important;
   border: 1px solid #aaa !important;
@@ -51,7 +51,7 @@ select,
 button,
 .btn,
 .ctrl_btn,
-.leda-button {
+.uobtkd-button {
   padding: 7px 12px !important;
   background: #f3f3f3 !important;
   cursor: pointer;
@@ -206,7 +206,7 @@ select:focus {
 .pss-free-actions {
   margin: 14px 0 0;
 }
-.leda-athletes {
+.uobtkd-athletes {
   max-width: 1500px;
   padding: 20px;
   margin: auto;
@@ -223,65 +223,65 @@ select:focus {
   margin: 0;
   font-size: 22px;
 }
-.leda-athletes > .row {
+.uobtkd-athletes > .row {
   min-height: 42px;
 }
-.leda-athletes > .row > .col-sm-6 {
+.uobtkd-athletes > .row > .col-sm-6 {
   font-size: 22px !important;
   color: #111 !important;
 }
-.leda-athletes .form-inline {
+.uobtkd-athletes .form-inline {
   margin: 12px 0 18px;
 }
-.leda-athletes table {
+.uobtkd-athletes table {
   width: 100%;
   border-collapse: collapse;
   color: #111 !important;
   background: #fff !important;
 }
-.leda-athletes caption {
+.uobtkd-athletes caption {
   padding: 12px 0;
   text-align: left;
   color: #444;
 }
-.leda-athletes tr td {
+.uobtkd-athletes tr td {
   padding: 10px;
   border: 1px solid #ccc;
   text-align: left;
   font-size: 14px;
 }
-.leda-athletes .head_text td {
+.uobtkd-athletes .head_text td {
   background: #eee;
   font-weight: bold;
 }
-.leda-athletes .active_line {
+.uobtkd-athletes .active_line {
   background: #e9edf2 !important;
   color: #111 !important;
 }
-.leda-colour-blue {
+.uobtkd-colour-blue {
   color: #174d9b;
 }
-.leda-colour-red {
+.uobtkd-colour-red {
   color: #a12323;
 }
-.leda-colour-none {
+.uobtkd-colour-none {
   color: #666;
 }
-.leda-training {
+.uobtkd-training {
   background: #fff !important;
   color: #111 !important;
 }
-.leda-training > .row:first-child {
+.uobtkd-training > .row:first-child {
   display: flex;
   align-items: center;
   border-bottom: 1px solid #aaa;
 }
-.leda-training > .row:first-child > .col-sm-8 {
+.uobtkd-training > .row:first-child > .col-sm-8 {
   color: #111 !important;
   font-size: 22px !important;
   font-weight: normal !important;
 }
-.leda-training > .row:first-child > .col-sm-2:last-child {
+.uobtkd-training > .row:first-child > .col-sm-2:last-child {
   display: none;
 }
 .pss-courts {
@@ -371,7 +371,7 @@ select:focus {
   justify-content: center;
   font-variant-numeric: tabular-nums;
 }
-.leda-impact {
+.uobtkd-impact {
   padding: 3px 0;
   font-size: 13px;
   line-height: 1.15;
@@ -405,7 +405,7 @@ select:focus {
 .pss-courts-16 .pss-participant-name {
   font-size: 10px;
 }
-.pss-courts-16 .leda-impact,
+.pss-courts-16 .uobtkd-impact,
 .pss-courts-16 .pss-hit-counts,
 .pss-courts-16 .pss-equipment {
   font-size: 10px;
@@ -421,30 +421,30 @@ select:focus {
 .pss-courts-16 .pss-participant {
   padding: 1px;
 }
-.leda-training-controls {
+.uobtkd-training-controls {
   border-top: 1px solid #aaa;
   background: #fff;
   min-height: 65px;
 }
-.leda-training-controls > .row {
+.uobtkd-training-controls > .row {
   display: flex;
   align-items: center;
   height: 100%;
   gap: 10px;
   padding: 8px 12px !important;
 }
-.leda-training-controls > .row > .col-sm-5:first-child {
+.uobtkd-training-controls > .row > .col-sm-5:first-child {
   width: 25%;
 }
-.leda-training-controls > .row > .col-sm-2 {
+.uobtkd-training-controls > .row > .col-sm-2 {
   width: 150px;
   flex-shrink: 0;
 }
-.leda-training-controls > .row > .col-sm-5:last-child {
+.uobtkd-training-controls > .row > .col-sm-5:last-child {
   flex: 1;
   width: auto;
 }
-.leda-training-controls .leda-round {
+.uobtkd-training-controls .uobtkd-round {
   width: 44px !important;
   height: 44px !important;
   line-height: 42px;
@@ -454,11 +454,11 @@ select:focus {
   border: 1px solid #aaa;
   border-radius: 0 !important;
 }
-.leda-training-controls .col-sm-9 > span {
+.uobtkd-training-controls .col-sm-9 > span {
   font-size: 18px !important;
   color: #111 !important;
 }
-.leda-training-controls .leda-timer {
+.uobtkd-training-controls .uobtkd-timer {
   height: 44px !important;
   line-height: 44px;
   font-size: 30px !important;
@@ -468,10 +468,10 @@ select:focus {
   border-radius: 0 !important;
   font-variant-numeric: tabular-nums;
 }
-.leda-training-controls .leda-timer span {
+.uobtkd-training-controls .uobtkd-timer span {
   color: inherit !important;
 }
-.leda-training-controls .ctrl_btn {
+.uobtkd-training-controls .ctrl_btn {
   margin: 3px !important;
   font-size: 14px !important;
 }
@@ -487,14 +487,14 @@ select:focus {
 .modal-backdrop.in {
   opacity: 0.35;
 }
-.leda-sensor-launcher {
+.uobtkd-sensor-launcher {
   position: fixed;
   top: 10px;
   left: 10px;
   z-index: 1020;
   font-size: 14px;
 }
-.leda-sensor-overlay {
+.uobtkd-sensor-overlay {
   position: fixed;
   inset: 0;
   top: 0;
@@ -508,10 +508,10 @@ select:focus {
   align-items: center;
   justify-content: center;
 }
-.leda-sensor-overlay[hidden] {
+.uobtkd-sensor-overlay[hidden] {
   display: none !important;
 }
-.leda-sensor-dialog {
+.uobtkd-sensor-dialog {
   width: 100%;
   max-width: 1150px;
   max-height: 92vh;
@@ -523,99 +523,99 @@ select:focus {
   font-size: 14px;
   text-align: left;
 }
-.leda-dialog-header {
+.uobtkd-dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid #bbb;
 }
-.leda-dialog-header h2 {
+.uobtkd-dialog-header h2 {
   margin: 0;
   font-size: 20px;
 }
-.leda-eyebrow {
+.uobtkd-eyebrow {
   display: none;
 }
-.leda-dialog-body {
+.uobtkd-dialog-body {
   padding: 16px 20px;
   overflow: auto;
 }
-.leda-dialog-body h3 {
+.uobtkd-dialog-body h3 {
   margin: 20px 0 8px;
   font-size: 15px;
 }
-.leda-muted {
+.uobtkd-muted {
   color: #555;
 }
-.leda-sensor-toolbar {
+.uobtkd-sensor-toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
-.leda-badge {
+.uobtkd-badge {
   font-size: 12px;
   white-space: nowrap;
 }
-.leda-threshold-grid {
+.uobtkd-threshold-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
   margin: 14px 0;
 }
-.leda-threshold-field {
+.uobtkd-threshold-field {
   display: flex;
   flex-direction: column;
   gap: 5px;
   font-weight: normal;
 }
-.leda-threshold-field input {
+.uobtkd-threshold-field input {
   width: 120px;
   font-size: 18px !important;
 }
-.leda-threshold-field small {
+.uobtkd-threshold-field small {
   color: #555;
 }
-.leda-readings-scroll {
+.uobtkd-readings-scroll {
   overflow-x: auto;
 }
-.leda-readings {
+.uobtkd-readings {
   width: 100%;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
-.leda-readings th,
-.leda-readings td {
+.uobtkd-readings th,
+.uobtkd-readings td {
   border: 1px solid #ccc;
   padding: 9px;
   text-align: left;
 }
-.leda-readings th {
+.uobtkd-readings th {
   background: #eee;
   font-size: 12px;
 }
-.leda-number {
+.uobtkd-number {
   text-align: right !important;
 }
-.leda-reading-time {
+.uobtkd-reading-time {
   display: block;
   color: #555;
   font-size: 11px;
 }
-.leda-readings code {
+.uobtkd-readings code {
   background: none;
   color: #111;
   padding: 0;
 }
-.leda-empty-state {
+.uobtkd-empty-state {
   padding: 24px 0;
 }
-.leda-empty-state p {
+.uobtkd-empty-state p {
   margin-top: 8px;
   color: #555;
 }
-.leda-sensor-footer {
+.uobtkd-sensor-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -624,10 +624,10 @@ select:focus {
   font-size: 12px;
   color: #555;
 }
-.leda-sensor-footer p {
+.uobtkd-sensor-footer p {
   margin: 0;
 }
-.leda-notification {
+.uobtkd-notification {
   position: fixed;
   bottom: 18px;
   left: 50%;
@@ -644,22 +644,22 @@ select:focus {
   border: 1px solid #555;
   white-space: pre-line;
 }
-.leda-notification span {
+.uobtkd-notification span {
   flex: 1;
 }
 @media (max-width: 900px) {
-  .leda-athletes {
+  .uobtkd-athletes {
     padding: 12px;
     overflow: auto;
   }
-  .leda-sensor-overlay {
+  .uobtkd-sensor-overlay {
     padding: 10px;
   }
-  .leda-dialog-header,
-  .leda-dialog-body {
+  .uobtkd-dialog-header,
+  .uobtkd-dialog-body {
     padding: 12px;
   }
-  .leda-sensor-footer {
+  .uobtkd-sensor-footer {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -1091,7 +1091,7 @@ select:focus {
   font-size: 3vh;
   min-height: 0;
 }
-.pss-courts-16 .leda-impact {
+.pss-courts-16 .uobtkd-impact {
   padding: 1px 0;
   font-size: 9px;
   line-height: 1;

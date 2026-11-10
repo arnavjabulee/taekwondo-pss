@@ -115,5 +115,5 @@
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else root.LEDA_CORE = api;
+  else root.UOBTKD_CORE = api;
 })(typeof window !== 'undefined' ? window : globalThis);

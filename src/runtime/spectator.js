@@ -210,8 +210,8 @@
     if (popup) {
       viewers.push(popup);
       if (controller) publish(controller);
-    } else if (root.LEDA_UI)
-      root.LEDA_UI.notify(
+    } else if (root.UOBTKD_UI)
+      root.UOBTKD_UI.notify(
         'The spectator window could not open. Allow pop-ups for this app, then try Open spectator window again.'
       );
   }

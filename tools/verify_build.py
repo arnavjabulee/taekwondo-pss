@@ -38,7 +38,7 @@ assert 'PSS_EQUIPMENT.battery(r)' in assets['index.js']
 assert 'name:"CompetitionSetup"' in assets['index.js']
 assert "PSS_FREE_TRAINING.createComponent(a(8462).Z)" in assets["index.js"]
 assert 'destination||"GameData"' in assets["744.index.js"]
-assert "leda-impact" in assets["777.index.js"]
+assert "uobtkd-impact" in assets["777.index.js"]
 assert assets["index.html"].index("pss-core.js") < assets["index.html"].index(
     "controller-fixes.js"
 )
@@ -49,6 +49,10 @@ try:
 except ValueError:
     pass
 
+for name, text in assets.items():
+    assert 'leda_' not in text.lower(), name
+    assert 'leda-' not in text.lower(), name
+    assert 'LedaSport' not in text, name
 test_root = Path(__file__).resolve().parents[1] / "test-results"
 test_root.mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(dir=test_root) as directory:

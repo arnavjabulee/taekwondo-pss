@@ -95,8 +95,8 @@
       }
     }
     function unavailable() {
-      if (!warningShown && host.LEDA_UI) {
-        host.LEDA_UI.notify(
+      if (!warningShown && host.UOBTKD_UI) {
+        host.UOBTKD_UI.notify(
           'Audio could not start. Click Test sound and check the Windows volume mixer.'
         );
         warningShown = true;

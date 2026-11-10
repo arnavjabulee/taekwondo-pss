@@ -155,7 +155,7 @@ assert.equal(native.status().backend, 'native');
 const fs = require('node:fs');
 const path = require('node:path');
 for (const filename of nativeCalls) {
-  const bytes = fs.readFileSync(path.join(__dirname, '../LedaSport-English/res', filename));
+  const bytes = fs.readFileSync(path.join(__dirname, '../UoBTKD Training Suite/res', filename));
   assert.equal(bytes.toString('ascii', 0, 4), 'RIFF');
   assert.equal(bytes.readUInt32LE(40), bytes.length - 44);
 }

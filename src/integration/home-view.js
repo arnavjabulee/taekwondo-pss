@@ -8,7 +8,7 @@
       [view._v(text)]
     );
   }
-  var title = window.LEDA_CORE.APP_NAME.split(' ');
+  var title = window.UOBTKD_CORE.APP_NAME.split(' ');
   return h('main', { staticClass: 'pss-home', attrs: { id: 'id_home' } }, [
     h('div', { staticClass: 'pss-menu-content' }, [
       h('h1', { attrs: { 'aria-label': title[0] + ' Electronic Training Suite' } }, [

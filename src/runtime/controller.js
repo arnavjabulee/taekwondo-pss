@@ -2,14 +2,14 @@
 (function (root) {
   'use strict';
   var core =
-    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.LEDA_CORE;
+    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.UOBTKD_CORE;
   function notify(message) {
-    if (root.LEDA_UI) root.LEDA_UI.notify(message);
+    if (root.UOBTKD_UI) root.UOBTKD_UI.notify(message);
     else root.alert(message);
   }
   function ignoreSpaceShortcut() {
     if (root.PSS_EQUIPMENT && root.PSS_EQUIPMENT.isOpen()) return true;
-    if (root.LEDA_SENSOR_MONITOR && root.LEDA_SENSOR_MONITOR.isOpen()) return true;
+    if (root.UOBTKD_SENSOR_MONITOR && root.UOBTKD_SENSOR_MONITOR.isOpen()) return true;
     if (!root.document) return false;
     var focused = root.document.activeElement;
     if (
@@ -301,5 +301,5 @@
     scoreHit: scoreHit
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else root.LEDA_CONTROLLER_FIXES = api;
+  else root.UOBTKD_CONTROLLER_FIXES = api;
 })(typeof window !== 'undefined' ? window : globalThis);

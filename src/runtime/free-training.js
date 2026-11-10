@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   var core =
-    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.LEDA_CORE;
+    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.UOBTKD_CORE;
   var STORAGE_KEY = 'bristol_free_training_v1';
   // Reuse the documented vendor command and renew device work before it expires.
   // This is transport maintenance, never a session clock or scoring deadline.
@@ -203,7 +203,7 @@
 
   function createComponent(store) {
     function notify(message) {
-      root.LEDA_UI.notify(message);
+      root.UOBTKD_UI.notify(message);
     }
     return {
       name: 'FreeTraining',
@@ -349,7 +349,7 @@
           if (this.active) this.renewDevices();
         },
         onSpace: function () {
-          if (!root.LEDA_CONTROLLER_FIXES.ignoreSpaceShortcut()) this.toggleTracking();
+          if (!root.UOBTKD_CONTROLLER_FIXES.ignoreSpaceShortcut()) this.toggleTracking();
         },
         home: function () {
           this.$router.push({ name: 'Index' });

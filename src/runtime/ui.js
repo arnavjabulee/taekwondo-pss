@@ -16,7 +16,7 @@
     var document = root.document;
     if (!document) return;
     notification = document.createElement('div');
-    notification.className = 'leda-notification';
+    notification.className = 'uobtkd-notification';
     notification.setAttribute('role', 'alert');
     var text = document.createElement('span');
     text.textContent = message;
@@ -33,13 +33,13 @@
   function cleanDefaults(info) {
     // Migrate only built-in titles; never rename a user's team or athletes.
     if (
-      /^(Training|Taekwondo|Bristol Taekwondo Electronic Training Suite|跆\s*拳\s*道|乐打智能体育|南京乐打体育科技有限公司)$/.test(
+      /^(Training|Taekwondo|Bristol Taekwondo Electronic Training Suite|\u8dc6\s*\u62f3\s*\u9053|\u4e50\u6253\u667a\u80fd\u4f53\u80b2|\u5357\u4eac\u4e50\u6253\u4f53\u80b2\u79d1\u6280\u6709\u9650\u516c\u53f8)$/.test(
         info.game_name || ''
       )
     ) {
-      info.game_name = root.LEDA_CORE.APP_NAME;
+      info.game_name = root.UOBTKD_CORE.APP_NAME;
     }
   }
 
-  root.LEDA_UI = { notify: notify, cleanDefaults: cleanDefaults };
+  root.UOBTKD_UI = { notify: notify, cleanDefaults: cleanDefaults };
 })(window);

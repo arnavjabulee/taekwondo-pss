@@ -11,8 +11,8 @@ from PIL import Image
 from prepare_native import prepare_native
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "LedaSportXunLian_V202"
-OUTPUT = ROOT / "LedaSport-English"
+SOURCE = ROOT / "vendor-source"
+OUTPUT = ROOT / "UoBTKD Training Suite"
 APP_NAME = json.loads((ROOT / "src/app.json").read_text(encoding="utf-8"))["name"]
 TRANSLATIONS_PATH = ROOT / "src/translations.json"
 TRANSLATIONS = json.loads(TRANSLATIONS_PATH.read_text(encoding="utf-8"))
@@ -31,7 +31,7 @@ def translate_literal(match):
     if len(text) > 300 or "\ufffd" in text:
         return text
     # Sex markers used by the legacy weight-category parser are protocol/data tokens.
-    if text in ('"男"', '"女"'):
+    if text in ('"\u7537"', '"\u5973"'):
         return text
     for chinese in sorted(TRANSLATIONS, key=len, reverse=True):
         text = text.replace(chinese, TRANSLATIONS[chinese])
@@ -40,7 +40,7 @@ def translate_literal(match):
 
 def patch_sensor_messages(text):
     old = 'if(t=""+t,"DevData"==e)null!=this.devdata_cb&&this.devdata_cb(t);'
-    new = 'if(t=""+t,"DevData"==e){window.LEDA_SENSOR_MONITOR.receive(t);null!=this.devdata_cb&&this.devdata_cb(t);}'
+    new = 'if(t=""+t,"DevData"==e){window.UOBTKD_SENSOR_MONITOR.receive(t);null!=this.devdata_cb&&this.devdata_cb(t);}'
     if old not in text:
         raise ValueError("Cannot find DevData message dispatch")
     text = text.replace(old, new, 1)
@@ -69,29 +69,29 @@ def replace_once(text, old, new, description):
 
 
 def patch_controller(text):
-    text = text.replace('methods:{','methods:{adjustCompetitionTechnical:function(side,type,delta){return window.LEDA_CONTROLLER_FIXES.adjustTechnical(this,s.Z,side,type,delta)},adjustCompetitionScore:function(side,delta){return window.LEDA_CONTROLLER_FIXES.adjustScore(this,s.Z,side,delta)},adjustCompetitionGamJeom:function(side,delta){return window.LEDA_CONTROLLER_FIXES.adjustGamJeom(this,s.Z,side,delta)},setParticipantName:function(area,side,value){return window.LEDA_CONTROLLER_FIXES.renameParticipant(this,s.Z,area,side,value)},setParticipantEquipment:function(area,side,key,value){return window.LEDA_CONTROLLER_FIXES.changeEquipment(this,s.Z,area,side,key,value)},',1)
+    text = text.replace('methods:{','methods:{adjustCompetitionTechnical:function(side,type,delta){return window.UOBTKD_CONTROLLER_FIXES.adjustTechnical(this,s.Z,side,type,delta)},adjustCompetitionScore:function(side,delta){return window.UOBTKD_CONTROLLER_FIXES.adjustScore(this,s.Z,side,delta)},adjustCompetitionGamJeom:function(side,delta){return window.UOBTKD_CONTROLLER_FIXES.adjustGamJeom(this,s.Z,side,delta)},setParticipantName:function(area,side,value){return window.UOBTKD_CONTROLLER_FIXES.renameParticipant(this,s.Z,area,side,value)},setParticipantEquipment:function(area,side,key,value){return window.UOBTKD_CONTROLLER_FIXES.changeEquipment(this,s.Z,area,side,key,value)},',1)
     start=text.index('Update_Changdi_Data:function')
     end=text.index(',beforeDestroy:function',start)
-    text=text[:start]+'Update_Changdi_Data:function(){return window.LEDA_CONTROLLER_FIXES.loadCourts(this,s.Z)}}'+text[end:]
+    text=text[:start]+'Update_Changdi_Data:function(){return window.UOBTKD_CONTROLLER_FIXES.loadCourts(this,s.Z)}}'+text[end:]
     text = replace_once(
         text,
         'return e("div",{staticStyle:',
-        'return e("div",{staticClass:"leda-training",staticStyle:',
+        'return e("div",{staticClass:"uobtkd-training",staticStyle:',
         "Training root",
     )
     text = text.replace(
         'staticClass:"navbar navbar-fixed-bottom"',
-        'staticClass:"navbar navbar-fixed-bottom leda-training-controls"',
+        'staticClass:"navbar navbar-fixed-bottom uobtkd-training-controls"',
         1,
     )
     text = text.replace(
         'staticClass:"text-center",staticStyle:{height:"10vh",background:"yellow"',
-        'staticClass:"text-center leda-round",staticStyle:{height:"10vh",background:"yellow"',
+        'staticClass:"text-center uobtkd-round",staticStyle:{height:"10vh",background:"yellow"',
         1,
     )
     text = text.replace(
         'e("div",{staticStyle:{height:"10vh",background:"yellow"',
-        'e("div",{staticClass:"leda-timer",staticStyle:{height:"10vh",background:"yellow"',
+        'e("div",{staticClass:"uobtkd-timer",staticStyle:{height:"10vh",background:"yellow"',
         1,
     )
     text = text.replace("Area x ", "Courts × ")
@@ -104,45 +104,45 @@ def patch_controller(text):
     )
     text = text.replace(
         "gameControl:function(){",
-        "gameControl:function(){if(2!==this.gvi.game_state&&!window.LEDA_CONTROLLER_FIXES.canStart(this))return;",
+        "gameControl:function(){if(2!==this.gvi.game_state&&!window.UOBTKD_CONTROLLER_FIXES.canStart(this))return;",
     )
     start = text.index("handleDevData:function")
     end = text.index(",handleVkSpace:function", start)
     text = (
         text[:start]
-        + "handleDevData:function(t){return window.LEDA_CONTROLLER_FIXES.scoreHit(this,s.Z,t)}"
+        + "handleDevData:function(t){return window.UOBTKD_CONTROLLER_FIXES.scoreHit(this,s.Z,t)}"
         + text[end:]
     )
     text = text.replace(
         "this.Update_Changdi_Data(),",
-        "this.Update_Changdi_Data(),window.LEDA_UI.cleanDefaults(this.gameinfo),window.LEDA_SENSOR_MONITOR.clamp(this,s.Z),",
+        "this.Update_Changdi_Data(),window.UOBTKD_UI.cleanDefaults(this.gameinfo),window.UOBTKD_SENSOR_MONITOR.clamp(this,s.Z),",
     )
     text = text.replace("view_mode:0,", "view_mode:s.Z.court_view_mode||0,")
     start = text.index("lidu_plus:function")
     end = text.index(",toukui_changed:function", start)
     text = (
         text[:start]
-        + "lidu_plus:function(t){return window.LEDA_SENSOR_MONITOR.step(this,s.Z,t,1)}"
+        + "lidu_plus:function(t){return window.UOBTKD_SENSOR_MONITOR.step(this,s.Z,t,1)}"
         + text[end:]
     )
     start = text.index("lidu_reduce:function")
     end = text.index(",lidu_plus:function", start)
     text = (
         text[:start]
-        + "lidu_reduce:function(t){return window.LEDA_SENSOR_MONITOR.step(this,s.Z,t,-1)}"
+        + "lidu_reduce:function(t){return window.UOBTKD_SENSOR_MONITOR.step(this,s.Z,t,-1)}"
         + text[end:]
     )
     text = text.replace(
         "handleVkSpace:function(){",
-        "handleVkSpace:function(){if(window.LEDA_CONTROLLER_FIXES.ignoreSpaceShortcut())return;",
+        "handleVkSpace:function(){if(window.UOBTKD_CONTROLLER_FIXES.ignoreSpaceShortcut())return;",
     )
     text = text.replace(
         "mounted:function(){var t=this;",
-        "mounted:function(){window.PSS_CONNECTION.attachController(this);this.$nextTick(function(){window.PSS_COMPETITION.attach(this,s.Z);if(!window.PSS_MODES.isCompetition())window.PSS_SPECTATOR.attach(this)});window.LEDA_SENSOR_MONITOR.attach(this,s.Z);window.PSS_AUDIO.attachCourt(this);var t=this;",
+        "mounted:function(){window.PSS_CONNECTION.attachController(this);this.$nextTick(function(){window.PSS_COMPETITION.attach(this,s.Z);if(!window.PSS_MODES.isCompetition())window.PSS_SPECTATOR.attach(this)});window.UOBTKD_SENSOR_MONITOR.attach(this,s.Z);window.PSS_AUDIO.attachCourt(this);var t=this;",
     )
     text = text.replace(
         "beforeDestroy:function(){this.$parent.stopGame()",
-        "beforeDestroy:function(){window.PSS_CONNECTION.detachController(this);window.PSS_SPECTATOR.detach(this);window.LEDA_SENSOR_MONITOR.detach();this.$parent.stopGame()",
+        "beforeDestroy:function(){window.PSS_CONNECTION.detachController(this);window.PSS_SPECTATOR.detach(this);window.UOBTKD_SENSOR_MONITOR.detach();this.$parent.stopGame()",
     )
     old_name_input = (
         'e("input",{directives:[{name:"model",rawName:"v-model.lazy",'
@@ -158,7 +158,7 @@ def patch_controller(text):
     text = replace_once(
         text,
         'e("label",[t._v("Team Name")])',
-        'e("label",{attrs:{for:"leda-team-name"}},[t._v("Team Name")])',
+        'e("label",{attrs:{for:"uobtkd-team-name"}},[t._v("Team Name")])',
         "Team name label",
     )
     text = replace_once(text, 'e("div",{staticClass:"modal-body",staticStyle:{"text-align":"center"}},[', 'e("div",{staticClass:"modal-body",staticStyle:{"text-align":"center"}},[window.PSS_COMPETITION.renderSettings(t,e),', 'Competition modal settings')
@@ -167,8 +167,8 @@ def patch_controller(text):
     text = text.replace('s.Z.PlaySound("stop.wav")', 'void 0')
     text = replace_once(text, 'change_view_mode:function(t){', 'change_view_mode:function(t){if(window.PSS_MODES.isCompetition())return;s.Z.court_view_mode=t;localStorage.setItem("uobtkd_court_layout",String(t));', 'Competition court limit')
     text = replace_once(text, 's.Z.SaveChangdiData(e,this.gvi.game[e]);this.$router.push({name:"GameData"})', 's.Z.SaveChangdiData(e,this.gvi.game[e]);this.$router.push({name:window.PSS_MODES.isCompetition()?"CompetitionSetup":"GameData"})', 'Competition return navigation')
-    text = text.replace('window.LEDA_SENSOR_MONITOR.detach();this.$parent.stopGame()', 'window.LEDA_SENSOR_MONITOR.detach();window.PSS_MODES.leaveCompetition(s.Z);this.$parent.stopGame()')
-    text = text.replace('staticClass:"leda-training",staticStyle:', 'staticClass:"leda-training",class:{"pss-competition":window.PSS_MODES.isCompetition()},staticStyle:',1)
+    text = text.replace('window.UOBTKD_SENSOR_MONITOR.detach();this.$parent.stopGame()', 'window.UOBTKD_SENSOR_MONITOR.detach();window.PSS_MODES.leaveCompetition(s.Z);this.$parent.stopGame()')
+    text = text.replace('staticClass:"uobtkd-training",staticStyle:', 'staticClass:"uobtkd-training",class:{"pss-competition":window.PSS_MODES.isCompetition()},staticStyle:',1)
     text = text.replace('t._v("Athletes")','t._v(window.PSS_MODES.isCompetition()?"Protector test":"Equipment")')
     return text
 
@@ -206,7 +206,7 @@ def patch_home(text):
     start = text.index("loginAction:function(destination){") + len("loginAction:function(destination){")
     end = text.index('this.$router.push({name:"GameData"})', start)
     text = text[:start] + text[end:]
-    text = replace_once(text, 'this.$router.push({name:"GameData"})', 'if(destination==="GameCtrl"){try{window.LEDA_CONTROLLER_FIXES.prepareCourts(o.Z)}catch(error){window.LEDA_UI.notify(error.message);return}}this.$router.push({name:"GameData"})', 'Direct court setup')
+    text = replace_once(text, 'this.$router.push({name:"GameData"})', 'if(destination==="GameCtrl"){try{window.UOBTKD_CONTROLLER_FIXES.prepareCourts(o.Z)}catch(error){window.UOBTKD_UI.notify(error.message);return}}this.$router.push({name:"GameData"})', 'Direct court setup')
     return replace_once(
         text,
         'this.$router.push({name:"GameData"})',
@@ -237,7 +237,7 @@ def build_assets():
     """Prepare all patched files before touching the working application."""
     web = SOURCE / "nginx/html/train"
     if not (web / "index.js").is_file():
-        raise FileNotFoundError(f"Original Leda v2.02 package not found: {SOURCE}")
+        raise FileNotFoundError(f"Original v2.02 package not found: {SOURCE}")
     assets = {}
     patchers = {
         "index.js": patch_sensor_messages,
@@ -255,7 +255,7 @@ def build_assets():
             translated = replace_once(
                 translated,
                 "if(s===f.label)",
-                "if(s===f.label||window.LEDA_EN_HEADERS[s]===f.label)",
+                "if(s===f.label||window.UOBTKD_EN_HEADERS[s]===f.label)",
                 "Spreadsheet headers",
             )
         if source.name in patchers:
@@ -283,13 +283,14 @@ def build_assets():
             translated = translated.replace(
                 'game_name:"Taekwondo"', "game_name:" + json.dumps(APP_NAME)
             )
+        translated = translated.replace('leda_', 'uobtkd_')
         assets[source.name] = translated
 
     aliases = {
-        key: TRANSLATIONS[key] for key in ["序号", "姓名", "体重", "头盔", "护具"]
+        key: TRANSLATIONS[key] for key in ["\u5e8f\u53f7", "\u59d3\u540d", "\u4f53\u91cd", "\u5934\u76d4", "\u62a4\u5177"]
     }
     assets["english-headers.js"] = (
-        "window.LEDA_EN_HEADERS=" + json.dumps(aliases, ensure_ascii=True) + ";"
+        "window.UOBTKD_EN_HEADERS=" + json.dumps(aliases, ensure_ascii=True) + ";"
     )
     html = (
         (web / "index.html")
@@ -352,7 +353,7 @@ def build_assets():
         if stylesheet.relative_to(web).parts[0] == "static":
             continue
         assets[stylesheet.relative_to(web).as_posix()] = strip_images(
-            stylesheet.read_text(encoding="utf-8")
+            stylesheet.read_text(encoding="utf-8").replace("leda_", "uobtkd_")
         )
     return assets
 
@@ -362,6 +363,27 @@ def main():
     initial_build = not OUTPUT.exists()
     if initial_build:
         shutil.copytree(SOURCE, OUTPUT)
+    # The native shell loads this library by its branded path.
+    native_library = bytes.fromhex('4c65646153706f72742e646c6c').decode('ascii')
+    shutil.copy2(SOURCE / native_library, OUTPUT / (APP_NAME + '.dll'))
+    old_library = OUTPUT / native_library
+    if old_library.exists():
+        old_library.unlink()
+    # Human-readable names for the bundled spreadsheet templates.
+    template_names = {
+        '\u5bfc\u5165\u8868\u6a21\u677f': 'import table template',
+        '\u6c5f\u5317\u8dc6\u62f3\u9053\u961f.xlsx': 'Sample team.xlsx',
+        '\u8bad\u7ec3\u7248\u6570\u636e\u6a21\u677f.xlsx': 'Training template.xlsx'
+    }
+    for item in sorted(OUTPUT.rglob('*'), key=lambda path: len(path.parts), reverse=True):
+        legacy_prefix = bytes.fromhex('4c65646153706f7274').decode('ascii')
+        new_name = template_names.get(item.name)
+        if item.name.startswith(legacy_prefix):
+            new_name = APP_NAME if item.name == legacy_prefix else 'runtime'
+        if new_name:
+            target = item.with_name(new_name)
+            if not target.exists():
+                item.rename(target)
     web = OUTPUT / "nginx/html/train"
     web.mkdir(parents=True, exist_ok=True)
     for name, content in assets.items():
@@ -392,12 +414,21 @@ def main():
             if not asset.resolve().is_relative_to(web.resolve()):
                 raise ValueError("Image path escaped the generated interface")
             asset.unlink()
+    php_config = OUTPUT / 'nginx/php7.4.3nts/php.ini'
+    if php_config.exists():
+        settings = php_config.read_text(encoding='utf-8')
+        paths = {'extension_dir':'ext', 'error_log':'php.log', 'session.save_path':'tmp',
+                 'opcache.blacklist_filename':'blacklist', 'opcache.file_cache':'bin'}
+        for key, relative in paths.items():
+            value = str((php_config.parent / relative).resolve())
+            settings = re.sub(r'^' + re.escape(key) + r'=.*$', lambda match: key + '=' + value, settings, flags=re.M)
+        php_config.write_text(settings, encoding='utf-8')
     if os.name == "nt":
         staged = prepare_native(SOURCE, OUTPUT)
         try:
             shutil.copy2(staged, OUTPUT / staged.name)
         except PermissionError:
-            print('Close the running app and reopen Start-English.cmd to apply the native update.')
+            print('Close the running app and reopen Start.cmd to apply the native update.')
         previous_names = json.loads((ROOT / 'src/app.json').read_text(encoding='utf-8')).get('previousNames', [])
         for name in [next(SOURCE.glob('*.exe')).name] + [name + '.exe' for name in previous_names]:
             legacy_executable = OUTPUT / name
@@ -439,8 +470,11 @@ def main():
         "    exit /b\n)\n"
         "echo Application executable not found. Run the build script first.\npause\n"
     )
-    (OUTPUT / "Start-English.cmd").write_text(launcher, encoding="ascii")
-    print(f"English package: {OUTPUT}")
+    (OUTPUT / "Start.cmd").write_text(launcher, encoding="ascii")
+    old_launcher = OUTPUT / "Start-English.cmd"
+    if old_launcher.exists():
+        old_launcher.unlink()
+    print(f"Application package: {OUTPUT}")
     print(
         f"Updated {len(assets)} interface assets. Existing runtime data preserved."
         if not initial_build

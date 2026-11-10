@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 let checks = 0;
-for (const packageName of ['LedaSportXunLian_V202', 'LedaSport-English']) {
+for (const packageName of ['vendor-source', 'UoBTKD Training Suite']) {
   const web = path.join(root, packageName, 'nginx/html/train');
   for (const file of fs.readdirSync(web).filter((f) => f.endsWith('.js'))) {
     new vm.Script(fs.readFileSync(path.join(web, file), 'utf8'), { filename: file });
@@ -22,7 +22,7 @@ for (const packageName of ['LedaSportXunLian_V202', 'LedaSport-English']) {
   const score = vm.runInNewContext('(' + handler + ')', {
     s: { Z: state },
     h: 16,
-    window: { LEDA_CONTROLLER_FIXES: require('../src/runtime/controller.js') },
+    window: { UOBTKD_CONTROLLER_FIXES: require('../src/runtime/controller.js') },
     console: { log() {} }
   });
   const athlete = () => ({ huju: '', toukui: '', score: 0, tkhits: 0, hjhits: 0, valid: 0 });

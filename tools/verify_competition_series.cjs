@@ -4,7 +4,7 @@ const fixes = require('../src/runtime/controller.js');
 const engine = require('../src/runtime/competition.js');
 global.PSS_MODES = { isCompetition: () => true };
 global.PSS_COMPETITION = engine;
-global.LEDA_CONTROLLER_FIXES = fixes;
+global.UOBTKD_CONTROLLER_FIXES = fixes;
 const sounds = [];
 global.PSS_AUDIO = { event: (n) => sounds.push(n), hit() {} };
 function setup(options = {}) {

@@ -121,8 +121,8 @@ const body = node('body'),
 const sandbox = {
   document: { body, createElement: node },
   alert: (m) => alerts.push(m),
-  LEDA_CONTROLLER_FIXES: fixes,
-  LEDA_CORE: require('../src/runtime/core.js')
+  UOBTKD_CONTROLLER_FIXES: fixes,
+  UOBTKD_CORE: require('../src/runtime/core.js')
 };
 sandbox.window = sandbox;
 vm.runInNewContext(fs.readFileSync(require.resolve('../src/runtime/sensors.js'), 'utf8'), sandbox);
@@ -131,7 +131,7 @@ ctx.$parent = {
   start_devices: (t) => commands.push(['start', t]),
   stop_devices: (t) => commands.push(['stop', t])
 };
-sandbox.LEDA_SENSOR_MONITOR.attach(ctx, store);
+sandbox.UOBTKD_SENSOR_MONITOR.attach(ctx, store);
 body.children[0].onclick();
 let panel = body.children[1];
 findNode(panel, (n) => n.text === 'Listen for hits').onclick();
@@ -143,7 +143,7 @@ body.children[0].onclick();
 findNode(panel, (n) => n.text === 'Pressure-only support').onclick();
 assert.equal(alerts.length, 1);
 assert.equal(commands.length, 8);
-sandbox.LEDA_SENSOR_MONITOR.detach();
+sandbox.UOBTKD_SENSOR_MONITOR.detach();
 assert.equal(body.children.length, 0);
 console.log(
   'Sensor checks passed: values, invalid packets, paused monitoring, limit above 30, persistence, panel controls, listen/stop lifecycle, and no undocumented commands.'

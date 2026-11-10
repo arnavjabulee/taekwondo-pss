@@ -10,7 +10,7 @@ e('input', {
   ],
   staticClass: 'form-control',
   attrs: {
-    id: 'leda-team-name',
+    id: 'uobtkd-team-name',
     type: 'text',
     autocomplete: 'organization'
   },

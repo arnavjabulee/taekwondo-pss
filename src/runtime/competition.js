@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   var core =
-    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.LEDA_CORE;
+    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.UOBTKD_CORE;
   var METHODS = {
     PTF: 'Final score',
     PTG: 'Point gap',
@@ -380,7 +380,7 @@
       s.phase = 'paused';
       cue('pause');
     } else {
-      if (!controller.gvi.online || !root.LEDA_CONTROLLER_FIXES.canStart(controller)) return;
+      if (!controller.gvi.online || !root.UOBTKD_CONTROLLER_FIXES.canStart(controller)) return;
       var resume = s.phase === 'paused';
       s.started = true;
       s.phase = 'running';
@@ -572,7 +572,7 @@
             0,
             remaining - Math.max(0, Date.now() - controller._lastClockAt) / 1000
           );
-        var node = controller.$el && controller.$el.querySelector('.leda-timer span');
+        var node = controller.$el && controller.$el.querySelector('.uobtkd-timer span');
         if (node)
           node.textContent = matchTimeText({
             phase: current.phase,
@@ -620,7 +620,7 @@
     controller.$parent.online_cb = controller.handleOnlineState;
     controller.recordCompetitionResult = function () {
       if (!record(controller, store))
-        root.LEDA_UI.notify(
+        root.UOBTKD_UI.notify(
           'The selected result does not match the scores or configured limits. Use SUP for a referee superiority decision.'
         );
     };
@@ -843,7 +843,7 @@
                 next > max
               ) {
                 event.target.value = value;
-                root.LEDA_UI.notify('Enter a whole number between ' + min + ' and ' + max + '.');
+                root.UOBTKD_UI.notify('Enter a whole number between ' + min + ' and ' + max + '.');
                 return;
               }
               view.$set(view.gameinfo, key, next);

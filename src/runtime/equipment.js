@@ -373,7 +373,7 @@
     detailsId = null,
     previousFocus = null;
   function notify(text) {
-    root.LEDA_UI.notify(text);
+    root.UOBTKD_UI.notify(text);
   }
   function changed() {
     try {
@@ -497,7 +497,7 @@
       return;
     }
     host.MqttRequestDeviceList();
-    root.LEDA_CORE.DEVICE_TOPICS.forEach(function (type) {
+    root.UOBTKD_CORE.DEVICE_TOPICS.forEach(function (type) {
       host.query_battery_info_devices(type);
     });
   }
@@ -594,7 +594,7 @@
     host = view;
     store = data;
     root.PSS_NAV.attach(view, data);
-    for (var index = 0; index < root.LEDA_CORE.COURT_COUNT; index++) {
+    for (var index = 0; index < root.UOBTKD_CORE.COURT_COUNT; index++) {
       var court = store.ReadChangdiData(index);
       if (court && court.left && court.right)
         ['left', 'right'].forEach(function (side) {
@@ -634,7 +634,7 @@
       return touched;
     }
     if (store) {
-      for (var i = 0; i < root.LEDA_CORE.COURT_COUNT; i++) {
+      for (var i = 0; i < root.UOBTKD_CORE.COURT_COUNT; i++) {
         var court = store.ReadChangdiData(i);
         if (court && court.left && court.right) {
           var a = update(court.left, 'huju', 'toukui'),

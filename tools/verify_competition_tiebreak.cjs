@@ -4,7 +4,7 @@ const assert = require('node:assert/strict'),
   engine = require('../src/runtime/competition.js');
 global.PSS_MODES = { isCompetition: () => true };
 global.PSS_COMPETITION = engine;
-global.LEDA_CONTROLLER_FIXES = fixes;
+global.UOBTKD_CONTROLLER_FIXES = fixes;
 global.PSS_AUDIO = { event() {}, hit() {} };
 function match(options = {}) {
   const info = {

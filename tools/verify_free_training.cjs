@@ -77,8 +77,8 @@ global.localStorage = {
   getItem: (key) => stored.get(key) || null,
   setItem: (key, value) => stored.set(key, value)
 };
-global.LEDA_UI = { notify: (message) => notifications.push(message) };
-global.LEDA_CONTROLLER_FIXES = { ignoreSpaceShortcut: () => false };
+global.UOBTKD_UI = { notify: (message) => notifications.push(message) };
+global.UOBTKD_CONTROLLER_FIXES = { ignoreSpaceShortcut: () => false };
 const actualInterval = global.setInterval,
   actualClear = global.clearInterval;
 global.setInterval = (callback, delay) => {

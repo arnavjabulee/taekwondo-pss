@@ -21,7 +21,7 @@
                 parent.setParticipantEquipment(court, side, key, event.target.value);
               } catch (error) {
                 event.target.value = current;
-                window.LEDA_UI.notify(error.message);
+                window.UOBTKD_UI.notify(error.message);
               }
             }
           }
@@ -30,7 +30,7 @@
           h('option', { attrs: { value: '' } }, [view._v('None')]),
           view._l(window.PSS_EQUIPMENT.ids(type, current), function (id) {
             var owner =
-              id !== current ? window.LEDA_CONTROLLER_FIXES.equipmentOwner(parent, id) : '';
+              id !== current ? window.UOBTKD_CONTROLLER_FIXES.equipmentOwner(parent, id) : '';
             return h('option', { attrs: { value: id } }, [
               view._v(
                 window.PSS_EQUIPMENT.option(id, type) + (owner ? ' (swap with ' + owner + ')' : '')
@@ -73,7 +73,7 @@
     var offset = court * 4 + (blue ? 0 : 2);
     var competition = window.PSS_MODES.isCompetition();
     var title = blue ? 'Blue' : 'Red';
-    var enabled = window.LEDA_CONTROLLER_FIXES.canAdjustCompetition(view.$parent);
+    var enabled = window.UOBTKD_CONTROLLER_FIXES.canAdjustCompetition(view.$parent);
     var matchState = competition ? window.PSS_COMPETITION.state(view.$parent) : null;
     var leading = competition ? window.PSS_COMPETITION.leaders(view.$parent.gvi.game[0]) : null;
     function adjustButton(label, aria, action, disabled) {
@@ -120,8 +120,8 @@
               }
             })
           ]),
-      h('div', { staticClass: 'leda-impact' }, [
-        view._v(window.LEDA_SENSOR_MONITOR.formatHit(slot))
+      h('div', { staticClass: 'uobtkd-impact' }, [
+        view._v(window.UOBTKD_SENSOR_MONITOR.formatHit(slot))
       ]),
       h('div', { staticClass: 'pss-score' }, [view._v(view._s(slot.score))]),
       h('div', { staticClass: 'pss-hit-counts' }, [
@@ -273,12 +273,12 @@
   }
 
   if (window.PSS_MODES.isCompetition() && view.$parent.gvi.competitionTab === 'spectator')
-    return h('div', { staticClass: 'leda-courts pss-courts pss-spectator-preview-container' }, [
+    return h('div', { staticClass: 'uobtkd-courts pss-courts pss-spectator-preview-container' }, [
       __COUNT__ === 1 ? window.PSS_SPECTATOR.preview(view, h, view.$parent) : view._e()
     ]);
   var courts = h(
     'div',
-    { staticClass: 'leda-courts pss-courts pss-courts-__COUNT__' },
+    { staticClass: 'uobtkd-courts pss-courts pss-courts-__COUNT__' },
     view._l(__COUNT__, function (number) {
       var court = number - 1;
       return h('article', { key: court, staticClass: 'pss-court' }, [

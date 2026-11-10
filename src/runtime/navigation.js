@@ -94,8 +94,8 @@
       root.PSS_EQUIPMENT.close();
       return;
     }
-    if (root.LEDA_SENSOR_MONITOR && root.LEDA_SENSOR_MONITOR.isOpen()) {
-      root.LEDA_SENSOR_MONITOR.close();
+    if (root.UOBTKD_SENSOR_MONITOR && root.UOBTKD_SENSOR_MONITOR.isOpen()) {
+      root.UOBTKD_SENSOR_MONITOR.close();
       return;
     }
     var modal = root.document.querySelector('.modal.in');

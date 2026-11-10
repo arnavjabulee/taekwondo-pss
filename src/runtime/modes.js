@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   var core =
-    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.LEDA_CORE;
+    typeof module !== 'undefined' && module.exports ? require('./core.js') : root.UOBTKD_CORE;
   var backup = null,
     BACKUP_KEY = 'uobtkd_competition_backup_v1',
     SETUP_KEY = 'uobtkd_competition_setup_v1';
@@ -169,7 +169,7 @@
             this.stopTest();
             this.$router.push({ name: 'GameCtrl', query: { mode: 'competition' } });
           } catch (error) {
-            root.LEDA_UI.notify(error.message);
+            root.UOBTKD_UI.notify(error.message);
           }
         },
         renewTest: function () {
@@ -259,7 +259,7 @@
             this.syncTest();
           } catch (error) {
             event.target.value = old;
-            root.LEDA_UI.notify(error.message);
+            root.UOBTKD_UI.notify(error.message);
           }
         }
       },

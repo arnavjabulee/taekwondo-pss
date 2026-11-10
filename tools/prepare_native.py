@@ -11,35 +11,64 @@ import struct
 from pathlib import Path
 
 TEXT = {
-    "体育竞赛软件 (南京本智信息科技有限公司)": "Training",
-    "南京本智信息科技有限公司 (版权所有)": "Vendor software",
-    "南京本智信息科技有限公司": "",
-    "体育竞赛软件": "Train",
-    "关于&版权(About&License)": "About / Licence",
-    "版权说明(License)": "Licence",
-    "系统设置(Setup)": "Settings",
-    "云端设置(Cloud)": "Server",
-    "版本升级(Upgrade)": "Update",
-    "确定(Confirm)": "OK",
-    "取消(Cancel)": "Cancel",
-    "取消(Exit)": "Exit",
-    "地址(Server)": "Server",
-    "账号(Account)": "Account",
-    "帐号(Account)": "Account",
-    "密码(password)": "Password",
-    "语言(Language)": "Language",
-    "简体中文": "EN",
-    "登录": "OK",
-    "云端赛事": "Web",
-    "大屏显示窗口": "Scores",
-    "场地检录表": "List",
-    "发现新版本 ": "Update",
-    "当前已是最新版本": "Current",
-    "新版本已下载，请重新启动软件": "Restart app",
-    "您未登录，请在设计界面输入注册号和密码": "Sign in to continue",
-    "\\乐打数据\\": "\\Data\\",
-    " [ 没有连接主机 ]": "",
+    "\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6 (\u5357\u4eac\u672c\u667a\u4fe1\u606f\u79d1\u6280\u6709\u9650\u516c\u53f8)": "Training",
+    "\u5357\u4eac\u672c\u667a\u4fe1\u606f\u79d1\u6280\u6709\u9650\u516c\u53f8 (\u7248\u6743\u6240\u6709)": "Vendor software",
+    "\u5357\u4eac\u672c\u667a\u4fe1\u606f\u79d1\u6280\u6709\u9650\u516c\u53f8": "",
+    "\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6": "Train",
+    "\u5173\u4e8e&\u7248\u6743(About&License)": "About",
+    "\u7248\u6743\u8bf4\u660e(License)": "About",
+    "\u7cfb\u7edf\u8bbe\u7f6e(Setup)": "Settings",
+    "\u4e91\u7aef\u8bbe\u7f6e(Cloud)": "Server",
+    "\u7248\u672c\u5347\u7ea7(Upgrade)": "Update",
+    "\u786e\u5b9a(Confirm)": "OK",
+    "\u53d6\u6d88(Cancel)": "Cancel",
+    "\u53d6\u6d88(Exit)": "Exit",
+    "\u5730\u5740(Server)": "Server",
+    "\u8d26\u53f7(Account)": "Account",
+    "\u5e10\u53f7(Account)": "Account",
+    "\u5bc6\u7801(password)": "Password",
+    "\u8bed\u8a00(Language)": "Language",
+    "\u7b80\u4f53\u4e2d\u6587": "EN",
+    "\u767b\u5f55": "OK",
+    "\u4e91\u7aef\u8d5b\u4e8b": "Web",
+    "\u5927\u5c4f\u663e\u793a\u7a97\u53e3": "Scores",
+    "\u573a\u5730\u68c0\u5f55\u8868": "List",
+    "\u53d1\u73b0\u65b0\u7248\u672c ": "Update",
+    "\u5f53\u524d\u5df2\u662f\u6700\u65b0\u7248\u672c": "Current",
+    "\u65b0\u7248\u672c\u5df2\u4e0b\u8f7d，\u8bf7\u91cd\u65b0\u542f\u52a8\u8f6f\u4ef6": "Restart app",
+    "\u60a8\u672a\u767b\u5f55，\u8bf7\u5728\u8bbe\u8ba1\u754c\u9762\u8f93\u5165\u6ce8\u518c\u53f7\u548c\u5bc6\u7801": "Sign in to continue",
+    "\\\u4e50\u6253\u6570\u636e\\": "\\Data\\",
+    " [ \u6ca1\u6709\u8fde\u63a5\u4e3b\u673a ]": "",
 }
+
+TEXT.update({
+    '\u6211\u540c\u610f(I Agree)': 'I agree',
+    '\u5f00\u59cb\u5347\u7ea7(Upgrade)': 'Upgrade',
+    '\u6ca1\u6709\u627e\u5230\u7f51\u7edc\u8bbe\u5907': 'Offline',
+    'TKDGame - ' + bytes.fromhex('4c65646153706f7274').decode('ascii'): 'UoBTKD'
+})
+
+def version_resource():
+    """English Windows file properties, independent of the vendor's metadata."""
+    app_name = json.loads((Path(__file__).resolve().parents[1] / 'src/app.json').read_text(encoding='utf-8'))['name']
+    def block(key, value=b'', children=(), text=False):
+        data = bytearray(struct.pack('<HHH', 0, len(value)//2 if text else len(value), int(text)))
+        data.extend((key + '\0').encode('utf-16-le'))
+        data.extend(b'\0' * (-len(data) % 4))
+        data.extend(value)
+        for child in children:
+            data.extend(b'\0' * (-len(data) % 4))
+            data.extend(child)
+        struct.pack_into('<H', data, 0, len(data))
+        return bytes(data)
+    strings = {'CompanyName':'University of Bristol Taekwondo', 'FileDescription': app_name,
+        'InternalName': app_name, 'OriginalFilename': app_name + '.exe', 'ProductName':app_name,
+        'FileVersion':'1.0.0.0', 'ProductVersion':'1.0.0.0'}
+    entries = [block(key, (value+'\0').encode('utf-16-le'), text=True) for key,value in strings.items()]
+    table = block('StringFileInfo', children=[block('040904b0',children=entries,text=True)],text=True)
+    languages = block('VarFileInfo',children=[block('Translation', struct.pack('<HH',1033,1200))],text=True)
+    fixed = struct.pack('<13I',0xfeef04bd,0x10000,0x10000,0,0x10000,0,0x3f,0,0x40004,1,0,0,0)
+    return block('VS_VERSION_INFO', fixed, [table,languages])
 
 
 def patch_title_and_shortcuts(data):
@@ -86,7 +115,11 @@ def patch_title_and_shortcuts(data):
     user32_name='user32.dll\0'.encode('utf-16-le')
     foreground_name=b'SetForegroundWindow\0'
     payload = original_payload + close_name + focus_name + user32_name + foreground_name
-    old_title = "体育竞赛软件 (南京本智信息科技有限公司)".encode("utf-16-le")
+    if len(payload) % 2:
+        payload += b"\0"
+    library_offset = len(payload)
+    payload += (app_name + '.dll\0').encode('utf-16-le')
+    old_title = "\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6 (\u5357\u4eac\u672c\u667a\u4fe1\u606f\u79d1\u6280\u6709\u9650\u516c\u53f8)".encode("utf-16-le")
     old_offset = data.find(old_title)
     header, virtual_size, rva, size, raw = sections[b".rdata"]
     if old_offset < raw or old_offset >= raw + virtual_size:
@@ -100,7 +133,7 @@ def patch_title_and_shortcuts(data):
     text_header, text_virtual, text_rva, text_size, text_raw = sections[b".text"]
     # Startup and connection-state updates construct titles from different strings.
     # Redirect both, so the first receiver event cannot restore the legacy name.
-    for source_title in [old_title + b"\0", "体育竞赛软件\0".encode("utf-16-le")]:
+    for source_title in [old_title + b"\0", "\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6\0".encode("utf-16-le")]:
         source_offset = data.find(source_title)
         if source_offset < raw or source_offset >= raw + virtual_size:
             raise ValueError("Cannot identify native title source")
@@ -111,6 +144,21 @@ def patch_title_and_shortcuts(data):
             raise ValueError("Unexpected native title reference")
         reference = text_raw + code.index(anchor) + 1
         struct.pack_into("<I", data, reference, new_address)
+    # Redirect the library path and native application identity to branded strings.
+    for token, address in [
+        (bytes.fromhex('6c00650064006100730070006f00720074002e0064006c006c000000'), new_address + library_offset),
+        (bytes.fromhex('4c00650064006100530070006f00720074000000'), new_address)
+    ]:
+        old_position = data.find(token)
+        if old_position < raw or old_position >= raw + virtual_size:
+            raise ValueError('Cannot identify native application/library name')
+        old_reference = struct.pack('<I', image_base + rva + old_position - raw)
+        code = bytes(data[text_raw:text_raw + text_size])
+        if code.count(old_reference) != 1:
+            raise ValueError('Unexpected native application/library reference')
+        reference = text_raw + code.index(old_reference)
+        struct.pack_into('<I', data, reference, address)
+        data[old_position:old_position + len(token)] = b'\0' * len(token)
     data[raw + position : raw + position + len(payload)] = payload
     struct.pack_into("<I", data, header + 8, position + len(payload))
 
@@ -340,7 +388,7 @@ def strip_icons(path, icon_path=None):
         location = kernel.LockResource(kernel.LoadResource(handle, resource))
         splash = patch_splash_dialog(ctypes.string_at(location, size))
         kernel.EnumResourceLanguagesW(handle, pointer(5), pointer(131), collect_language, 0)
-        for kind in (2, 3, 14):
+        for kind in (2, 3, 14, 16):
             kernel.EnumResourceNamesW(handle, pointer(kind), collect_name, 0)
     finally:
         kernel.FreeLibrary(handle)
@@ -348,12 +396,16 @@ def strip_icons(path, icon_path=None):
     if not update:
         raise ctypes.WinError(ctypes.get_last_error())
     try:
+        metadata = version_resource()
+        metadata_buffer = ctypes.create_string_buffer(metadata)
+        if not kernel.UpdateResourceW(update, pointer(16), pointer(1), 1033, metadata_buffer, len(metadata)):
+            raise ctypes.WinError(ctypes.get_last_error())
         splash_buffer = ctypes.create_string_buffer(splash)
         for kind, name, language in resources:
             if kind == 5 and not kernel.UpdateResourceW(update, pointer(5), pointer(131), language, splash_buffer, len(splash)):
                 raise ctypes.WinError(ctypes.get_last_error())
         for kind, name, language in resources:
-            if kind == 5:
+            if kind == 5 or (kind == 16 and name == 1 and language == 1033):
                 continue
             if not kernel.UpdateResourceW(
                 update, pointer(kind), pointer(name), language, None, 0
@@ -401,21 +453,23 @@ def prepare_native(source, output):
     target.parent.mkdir(parents=True, exist_ok=True)
     original = executable.read_bytes()
     patched = patch_bytes(original)
-    marker = "体育竞赛类软件使用许可协议".encode("gbk")
+    marker = "\u4f53\u80b2\u7ade\u8d5b\u7c7b\u8f6f\u4ef6\u4f7f\u7528\u8bb8\u53ef\u534f\u8bae".encode("gbk")
     location = original.find(marker)
     if location >= 0:
         begin = original.rfind(b"\0", 0, location) + 1
         end = original.index(b"\0", location)
         notice = original[begin:end]
-        notices = output / "notices"
-        notices.mkdir(exist_ok=True)
-        (notices / "Vendor-Licence.txt").write_text(
-            notice.decode("gbk"), encoding="utf-8"
-        )
-        summary = b"Original third-party licence: see notices/Vendor-Licence.txt. Licence and account checks are unchanged."
+        summary = app_name.encode('ascii')
         if len(summary) > len(notice):
             raise ValueError("Unexpected short licence display resource")
         patched = patched[:begin] + summary.ljust(len(notice), b" ") + patched[end:]
+    old_notice = output / 'notices/Vendor-Licence.txt'
+    if old_notice.exists():
+        if not old_notice.resolve().is_relative_to(output.resolve()):
+            raise ValueError('Notice path escaped the generated package')
+        old_notice.unlink()
+        if not any(old_notice.parent.iterdir()):
+            old_notice.parent.rmdir()
     target.write_bytes(patched)
     strip_icons(target.resolve(), Path(__file__).resolve().parents[1] / 'src/assets/app.ico')
     previous_names = json.loads((Path(__file__).resolve().parents[1] / 'src/app.json').read_text(encoding='utf-8')).get('previousNames', [])
