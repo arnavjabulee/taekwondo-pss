@@ -1,4 +1,4 @@
-/* Untimed, individual hit-received tracking. Independent of court/round state. */
+/* Individual hit-received tracking with a stopwatch or repeating training intervals. */
 (function (root) {
   'use strict';
   var core =
@@ -9,6 +9,42 @@
   var WORK_COMMAND = 'StartWork,time:60,gate:1,level:1';
   var RENEW_INTERVAL = 30000;
 
+  function timeText(milliseconds) {
+    var seconds = Math.floor(Math.max(0, Number(milliseconds) || 0) / 1000);
+    var minutes = Math.floor(seconds / 60);
+    return (minutes < 10 ? '0' : '') + minutes + ':' + ('0' + (seconds % 60)).slice(-2);
+  }
+  function duration(value, fallback, minimum) {
+    value = Number(value);
+    return isFinite(value) && Math.floor(value) === value && value >= minimum && value <= 36000
+      ? value
+      : fallback;
+  }
+  function clockText(view) {
+    return timeText(
+      view.timerMode === 'rounds' ? Math.ceil(view.roundRemainingMs / 1000) * 1000 : view.elapsedMs
+    );
+  }
+  function phaseText(view) {
+    if (view.timerMode !== 'rounds') return view.active ? 'Tracking' : 'Paused';
+    var label =
+      view.roundPhase === 'break' ? 'Break' : view.roundPhase === 'ready' ? 'Ready' : 'Training';
+    return !view.active && view.roundPhase !== 'ready' ? label + ' paused' : label;
+  }
+  function soundKey(session, person) {
+    return (session.participants.indexOf(person) % 6) + 1;
+  }
+  function colour(person) {
+    var registry = root.PSS_EQUIPMENT && root.PSS_EQUIPMENT.registry;
+    var device =
+      registry && (registry.findDevice(person.bodyId) || registry.findDevice(person.helmetId));
+    var value = device && (device.detectedColour || device.colour);
+    return value && /^(blue|red)$/i.test(value)
+      ? value.toLowerCase()
+      : person.id % 2
+        ? 'blue'
+        : 'red';
+  }
   function createModel(saved) {
     var model = { participants: [], nextId: 1 };
     var editable = ['name', 'bodyId', 'helmetId', 'bodyLevel', 'helmetLevel'];
@@ -221,18 +257,142 @@
           session = createModel();
           notify('Saved participants could not be loaded: ' + error.message);
         }
+        var info = store.GAMEINFO || {};
+        var timing = (saved && saved.timing) || {};
+        var trainingSeconds = duration(timing.trainingSeconds, duration(info.game_time, 120, 1), 1);
+        var breakSeconds = duration(timing.breakSeconds, duration(info.rest_time, 60, 0), 0);
         return {
+          timerMode: timing.mode === 'rounds' ? 'rounds' : 'stopwatch',
+          trainingSeconds: trainingSeconds,
+          breakSeconds: breakSeconds,
+          roundPhase: /^(training|break)$/.test(timing.phase) ? timing.phase : 'ready',
+          roundRemainingMs:
+            isFinite(timing.remainingMs) &&
+            timing.remainingMs >= 0 &&
+            timing.remainingMs <= 36000000
+              ? Number(timing.remainingMs)
+              : trainingSeconds * 1000,
+          roundRules: {
+            training: trainingSeconds * 1000,
+            rest: duration(timing.restMs / 1000, breakSeconds, 0) * 1000
+          },
           session: session,
           active: false,
+          elapsedMs:
+            saved && isFinite(saved.elapsedMs) && saved.elapsedMs >= 0
+              ? Number(saved.elapsedMs)
+              : 0,
+          columns: 1,
+          rows: 1,
+          cardScale: 1,
           online: !!store.IS_ONLINE,
           availableBody: store.huju_devices || [],
           availableHelmet: store.toukui_devices || []
         };
       },
       methods: {
+        resizeLayout: function () {
+          var container = this.$el && this.$el.querySelector('.pss-free-people');
+          var area = container && container.getBoundingClientRect();
+          var width = (area && area.width) || (root.innerWidth || 1600) - 28;
+          var height = (area && area.height) || (root.innerHeight || 1000) - 150;
+          var count = Math.max(1, this.session.participants.length);
+          var best = { columns: 1, rows: count, scale: 0 };
+          for (var columns = 1; columns <= count; columns++) {
+            var rows = Math.ceil(count / columns);
+            var scale = Math.min(1.6, (width / columns - 6) / 560, (height / rows - 6) / 330);
+            if (scale > best.scale) best = { columns: columns, rows: rows, scale: scale };
+          }
+          this.columns = best.columns;
+          this.rows = best.rows;
+          this.cardScale = Math.max(0.01, best.scale);
+        },
+        changeTimerMode: function (event) {
+          if (this.active) return;
+          this.timerMode = event.target.value === 'rounds' ? 'rounds' : 'stopwatch';
+          this.resetRoundTimer();
+          this.$nextTick(this.resizeLayout);
+        },
+        setDuration: function (field, event) {
+          var value = duration(event.target.value, null, field === 'trainingSeconds' ? 1 : 0);
+          if (value === null) {
+            event.target.value = this[field];
+            return;
+          }
+          this[field] = value;
+          if (this.roundPhase === 'ready') this.roundRemainingMs = this.trainingSeconds * 1000;
+          this.save();
+        },
+        resetRoundTimer: function () {
+          this.pause(true);
+          this.roundPhase = 'ready';
+          this.roundRemainingMs = this.trainingSeconds * 1000;
+          this.save();
+        },
+        beginTrainingInterval: function () {
+          this.roundRules = {
+            training: this.trainingSeconds * 1000,
+            rest: this.breakSeconds * 1000
+          };
+          this.roundPhase = 'training';
+          this.roundRemainingMs = this.roundRules.training;
+          this.session.resetGroup();
+          store.IS_GAMING = true;
+          if (root.PSS_AUDIO) root.PSS_AUDIO.event('roundStart');
+          this.renewDevices();
+        },
+        advanceRoundTimer: function (elapsed) {
+          while (elapsed >= this.roundRemainingMs) {
+            elapsed -= this.roundRemainingMs;
+            if (this.roundPhase === 'training') {
+              if (root.PSS_AUDIO) root.PSS_AUDIO.event('roundEnd');
+              if (this.roundRules.rest) {
+                this.roundPhase = 'break';
+                this.roundRemainingMs = this.roundRules.rest;
+                store.IS_GAMING = false;
+                this.stopDevices();
+              } else this.beginTrainingInterval();
+            } else {
+              if (root.PSS_AUDIO) root.PSS_AUDIO.event('breakEnd');
+              this.beginTrainingInterval();
+            }
+          }
+          this.roundRemainingMs -= elapsed;
+        },
+        stopDevices: function () {
+          var parent = this.$parent;
+          core.DEVICE_TOPICS.forEach(function (topic) {
+            parent.sendMessage(topic, 'StopWork', store.MQTT_OPTION);
+          });
+        },
+        updateStopwatch: function () {
+          if (this.active && this._stopwatchStartedAt !== undefined) {
+            var now = Date.now();
+            this.elapsedMs = this._stopwatchBase + Math.max(0, now - this._stopwatchStartedAt);
+            if (this.timerMode === 'rounds')
+              this.advanceRoundTimer(Math.max(0, now - this._roundTickAt));
+            this._roundTickAt = now;
+          }
+        },
+        resetStopwatch: function () {
+          this.elapsedMs = 0;
+          this._stopwatchBase = 0;
+          this._stopwatchStartedAt = Date.now();
+          this.save();
+        },
         save: function () {
           try {
-            root.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.session.snapshot()));
+            var snapshot = this.session.snapshot();
+            snapshot.elapsedMs = this.elapsedMs;
+            snapshot.timing = {
+              mode: this.timerMode,
+              trainingSeconds: this.trainingSeconds,
+              breakSeconds: this.breakSeconds,
+              phase: this.roundPhase,
+              remainingMs: this.roundRemainingMs,
+              restMs: this.roundRules.rest
+            };
+            root.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
           } catch (error) {
             notify('Changes are in memory but could not be saved on this computer.');
           }
@@ -240,9 +400,11 @@
         addPerson: function (values) {
           try {
             var person = this.session.add(values);
+            this.resizeLayout();
             this.save();
             var view = this;
             this.$nextTick(function () {
+              view.resizeLayout();
               var input = view.$el.querySelector('[data-person-name="' + person.id + '"]');
               if (input) {
                 input.focus();
@@ -278,6 +440,7 @@
         },
         removePerson: function (person) {
           this.session.remove(person.id);
+          this.resizeLayout();
           if (!this.session.hasEquipment() && this.active) this.pause();
           this.save();
         },
@@ -290,41 +453,50 @@
           this.save();
         },
         renewDevices: function () {
-          if (!this.active || !this.online) return;
+          if (
+            !this.active ||
+            !this.online ||
+            (this.timerMode === 'rounds' && this.roundPhase !== 'training')
+          )
+            return;
           var parent = this.$parent;
           core.DEVICE_TOPICS.forEach(function (topic) {
             parent.sendMessage(topic, WORK_COMMAND, store.MQTT_OPTION);
           });
         },
         start: function () {
-          if (!this.online) {
-            notify('Receiver offline. Connect it before starting tracking.');
-            return;
-          }
-          if (!this.session.hasEquipment()) {
-            notify('Add a person and assign a helmet or body protector first.');
+          if (!this.session.participants.length) {
+            notify('Add a person before starting tracking.');
             return;
           }
           if (this.active) return;
+          this._stopwatchBase = this.elapsedMs;
+          this._stopwatchStartedAt = Date.now();
+          this._roundTickAt = this._stopwatchStartedAt;
           this.active = true;
-          store.IS_GAMING = true;
-          if (root.PSS_AUDIO) root.PSS_AUDIO.event(this._hasStarted ? 'resume' : 'roundStart');
+          this._stopwatchTicker = root.setInterval(this.updateStopwatch, 100);
+          store.IS_GAMING = this.timerMode !== 'rounds' || this.roundPhase !== 'break';
+          if (this.timerMode === 'rounds' && this.roundPhase === 'ready')
+            this.beginTrainingInterval();
+          else if (this.timerMode !== 'rounds' && root.PSS_AUDIO)
+            root.PSS_AUDIO.event(this._hasStarted ? 'resume' : 'roundStart');
           this._hasStarted = true;
           this.renewDevices();
           this._renewal = root.setInterval(this.renewDevices, RENEW_INTERVAL);
         },
         pause: function (silent) {
           var wasActive = this.active;
+          this.updateStopwatch();
+          if (this._stopwatchTicker) root.clearInterval(this._stopwatchTicker);
+          this._stopwatchTicker = null;
           this.active = false;
+          this.save();
           store.IS_GAMING = false;
           if (this._renewal) root.clearInterval(this._renewal);
           this._renewal = null;
           if (wasActive) {
             if (!silent && root.PSS_AUDIO) root.PSS_AUDIO.event('pause');
-            var parent = this.$parent;
-            core.DEVICE_TOPICS.forEach(function (topic) {
-              parent.sendMessage(topic, 'StopWork', store.MQTT_OPTION);
-            });
+            this.stopDevices();
           }
         },
         toggleTracking: function () {
@@ -332,10 +504,18 @@
           else this.start();
         },
         receive: function (payload) {
+          this.updateStopwatch();
+          var session = this.session;
           if (
-            this.session.record(payload, this.active && this.online, function (person) {
-              if (root.PSS_AUDIO) root.PSS_AUDIO.hit('person', person.id);
-            })
+            this.session.record(
+              payload,
+              this.active &&
+                this.online &&
+                (this.timerMode !== 'rounds' || this.roundPhase === 'training'),
+              function (person) {
+                if (root.PSS_AUDIO) root.PSS_AUDIO.hit('person', soundKey(session, person));
+              }
+            )
           )
             this.save();
         },
@@ -356,6 +536,12 @@
         }
       },
       mounted: function () {
+        if (root.document) {
+          root.document.body.classList.add('pss-free-open');
+          root.document.documentElement.classList.add('pss-free-open');
+        }
+        this.resizeLayout();
+        if (root.addEventListener) root.addEventListener('resize', this.resizeLayout);
         var parent = this.$parent;
         this._previousCallbacks = {
           devdata_cb: parent.devdata_cb,
@@ -371,6 +557,11 @@
         if (root.PSS_SPECTATOR) root.PSS_SPECTATOR.attach(this);
       },
       beforeDestroy: function () {
+        if (root.document) {
+          root.document.body.classList.remove('pss-free-open');
+          root.document.documentElement.classList.remove('pss-free-open');
+        }
+        if (root.removeEventListener) root.removeEventListener('resize', this.resizeLayout);
         this.pause(true);
         if (this._hasStarted && root.PSS_AUDIO) root.PSS_AUDIO.event('roundEnd');
         this.save();
@@ -485,20 +676,86 @@
             button('Home', view.home)
           ]),
           root.PSS_SPECTATOR ? root.PSS_SPECTATOR.controls(view, h) : view._e(),
-          h('p', [
-            view._v(
-              'Untimed. Each person receives one point per valid impact on their own equipment. No courts or fixed opponents. Choosing equipment in use swaps it between people; names and scores stay with their cards.'
-            )
+          h('div', { staticClass: 'pss-free-toolbar pss-free-timing' }, [
+            h('label', [
+              view._v('Timer '),
+              h(
+                'select',
+                {
+                  attrs: { 'aria-label': 'Free training timer', disabled: view.active },
+                  domProps: { value: view.timerMode },
+                  on: { change: view.changeTimerMode }
+                },
+                [
+                  h('option', { attrs: { value: 'stopwatch' } }, [view._v('Stopwatch')]),
+                  h('option', { attrs: { value: 'rounds' } }, [view._v('Repeating rounds')])
+                ]
+              )
+            ]),
+            view.timerMode === 'rounds'
+              ? h('label', [
+                  view._v('Training (seconds) '),
+                  h('input', {
+                    attrs: {
+                      type: 'number',
+                      min: 1,
+                      max: 36000,
+                      step: 1,
+                      'aria-label': 'Free training duration in seconds'
+                    },
+                    domProps: { value: view.trainingSeconds },
+                    on: {
+                      change: function (event) {
+                        view.setDuration('trainingSeconds', event);
+                      }
+                    }
+                  })
+                ])
+              : view._e(),
+            view.timerMode === 'rounds'
+              ? h('label', [
+                  view._v('Break (seconds) '),
+                  h('input', {
+                    attrs: {
+                      type: 'number',
+                      min: 0,
+                      max: 36000,
+                      step: 1,
+                      'aria-label': 'Free training break in seconds'
+                    },
+                    domProps: { value: view.breakSeconds },
+                    on: {
+                      change: function (event) {
+                        view.setDuration('breakSeconds', event);
+                      }
+                    }
+                  })
+                ])
+              : view._e(),
+            view.timerMode === 'rounds'
+              ? h('span', [
+                  view._v('Changes apply next training interval. Scores reset each interval.')
+                ])
+              : view._e()
           ]),
           h('div', { staticClass: 'pss-free-toolbar' }, [
             button(view.active ? 'Pause tracking' : 'Start tracking', view.toggleTracking),
             h('span', { attrs: { role: 'status' } }, [
-              view._v(!view.online ? 'Receiver offline' : view.active ? 'Tracking' : 'Paused')
+              view._v(phaseText(view) + (!view.online ? ' � Receiver offline' : ''))
             ]),
             button('Add person', function () {
               view.addPerson();
             }),
             button('Reset group scores', view.resetGroup),
+            h(
+              'strong',
+              { attrs: { 'data-free-stopwatch': '', 'aria-label': 'Elapsed training time' } },
+              [view._v(clockText(view))]
+            ),
+            button(
+              view.timerMode === 'rounds' ? 'Reset timer' : 'Reset stopwatch',
+              view.timerMode === 'rounds' ? view.resetRoundTimer : view.resetStopwatch
+            ),
             h('strong', [view._v('Group score: ' + view.session.groupScore())])
           ]),
           choices('free-body-devices', view.availableBody),
@@ -507,13 +764,21 @@
             ? h(
                 'div',
                 { staticClass: 'pss-free-people' },
-                view._l(view.session.participants, function (person) {
+                view._l(view.session.participants, function (person, index) {
                   var hit = person.lastHit;
                   return h(
                     'article',
                     {
                       key: person.id,
                       staticClass: 'pss-free-person',
+                      class: 'pss-free-' + colour(person),
+                      style: {
+                        width: '560px',
+                        height: '330px',
+                        left: (((index % view.columns) + 0.5) * 100) / view.columns + '%',
+                        top: ((Math.floor(index / view.columns) + 0.5) * 100) / view.rows + '%',
+                        transform: 'translate(-50%, -50%) scale(' + view.cardScale + ')'
+                      },
                       attrs: { 'data-person-id': person.id }
                     },
                     [
@@ -574,7 +839,8 @@
                         button(
                           'Test hit sound',
                           function () {
-                            if (root.PSS_AUDIO) root.PSS_AUDIO.hit('person', person.id);
+                            if (root.PSS_AUDIO)
+                              root.PSS_AUDIO.hit('person', soundKey(view.session, person));
                           },
                           { type: 'button', 'aria-label': 'Test hit sound for ' + person.name }
                         ),
@@ -587,12 +853,7 @@
                 }),
                 0
               )
-            : h('p', { staticClass: 'pss-free-empty' }, [view._v('Add a person to begin.')]),
-          h('p', { staticClass: 'pss-free-note' }, [
-            view._v(
-              'The group score is the sum of the people currently listed. Scores and names are saved; tracking always reopens paused.'
-            )
-          ])
+            : h('p', { staticClass: 'pss-free-empty' }, [view._v('Add a person to begin.')])
         ]);
       }
     };
@@ -600,6 +861,11 @@
 
   var api = {
     createModel: createModel,
+    timeText: timeText,
+    clockText: clockText,
+    phaseText: phaseText,
+    colour: colour,
+    soundKey: soundKey,
     createComponent: createComponent,
     STORAGE_KEY: STORAGE_KEY,
     WORK_COMMAND: WORK_COMMAND,

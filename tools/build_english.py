@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import re
 import shutil
+import filecmp
 import os
 import stat
 import subprocess
@@ -47,6 +48,7 @@ def patch_sensor_messages(text):
     text = replace_once(text, '{path:"/gamedata",name:"GameData",component:function(e){return a.e(170).then(function(){var t=[a(2170)];e.apply(null,t)}.bind(this)).catch(a.oe)}}', '{path:"/gamedata",name:"GameData",component:window.PSS_EQUIPMENT_PAGE.createComponent()}', 'Equipment inventory route')
     text = replace_once(text, 'mounted:function(){if("Chrome"==$s.Z.GetBrowser())', 'mounted:function(){window.PSS_MODES.recover($s.Z);window.PSS_EQUIPMENT.attach(this,$s.Z);if("Chrome"==$s.Z.GetBrowser())', 'Equipment manager attachment')
     text=text.replace('window.PSS_EQUIPMENT.attach(this,$s.Z);','window.PSS_EQUIPMENT.attach(this,$s.Z);window.PSS_CONNECTION.attach(this,$s.Z);',1)
+    text=replace_once(text,'window.OnVkSpace=function(){n.vkspace_cb&&n.vkspace_cb()}','window.OnVkSpace=function(){window.PSS_KEYS.nativeKey("Space")}','Configurable native Space key')
     text=replace_once(text,'window.OnConnectEvent=function(e){var t=parseInt(e);n.onClientState(t)}','window.OnConnectEvent=function(){}','MQTT-owned receiver state')
     text=replace_once(text,'i.on("close",(function(){console.log("mqtt ["+t.clientId+"] => onClose"),null!=a&&a(!1)})),','i.on("close",(function(){null!=a&&a(!1)})),i.on("offline",(function(){null!=a&&a(!1)})),i.on("error",(function(){null!=a&&a(!1)})),','MQTT disconnect/error listeners')
     text = replace_once(text, 'this.devstate_payload=e}', 'this.devstate_payload=e;window.PSS_EQUIPMENT.discover(e)}', 'Equipment discovery')
@@ -69,7 +71,10 @@ def replace_once(text, old, new, description):
 
 
 def patch_controller(text):
-    text = text.replace('methods:{','methods:{adjustCompetitionTechnical:function(side,type,delta){return window.UOBTKD_CONTROLLER_FIXES.adjustTechnical(this,s.Z,side,type,delta)},adjustCompetitionScore:function(side,delta){return window.UOBTKD_CONTROLLER_FIXES.adjustScore(this,s.Z,side,delta)},adjustCompetitionGamJeom:function(side,delta){return window.UOBTKD_CONTROLLER_FIXES.adjustGamJeom(this,s.Z,side,delta)},setParticipantName:function(area,side,value){return window.UOBTKD_CONTROLLER_FIXES.renameParticipant(this,s.Z,area,side,value)},setParticipantEquipment:function(area,side,key,value){return window.UOBTKD_CONTROLLER_FIXES.changeEquipment(this,s.Z,area,side,key,value)},',1)
+    text = text.replace('methods:{','methods:{adjustCompetitionTechnical:function(side,type,delta){return window.UOBTKD_CONTROLLER_FIXES.adjustTechnical(this,s.Z,side,type,delta)},adjustCompetitionScore:function(side,delta){return window.UOBTKD_CONTROLLER_FIXES.adjustScore(this,s.Z,side,delta)},adjustCompetitionGamJeom:function(side,delta,passive){return window.UOBTKD_CONTROLLER_FIXES.adjustGamJeom(this,s.Z,side,delta,passive)},setParticipantName:function(area,side,value){return window.UOBTKD_CONTROLLER_FIXES.renameParticipant(this,s.Z,area,side,value)},setParticipantEquipment:function(area,side,key,value){return window.UOBTKD_CONTROLLER_FIXES.changeEquipment(this,s.Z,area,side,key,value)},',1)
+    text = replace_once(text,
+        'e("button",{staticClass:"btn btn-md ctrl_btn",staticStyle:{float:"left","font-size":"5vh"},on:{click:function(e){return t.gameStop()}}},[t._v("Stop")])',
+        't._e()', 'Remove Stop button')
     start=text.index('Update_Changdi_Data:function')
     end=text.index(',beforeDestroy:function',start)
     text=text[:start]+'Update_Changdi_Data:function(){return window.UOBTKD_CONTROLLER_FIXES.loadCourts(this,s.Z)}}'+text[end:]
@@ -95,6 +100,8 @@ def patch_controller(text):
         1,
     )
     text = text.replace("Area x ", "Courts × ")
+    text = text.replace('t._s(t.gameinfo.game_name)', 't._s(window.PSS_MODES.isCompetition()?(t.gvi.game[0].matchName||"Competition"):t.gameinfo.game_name)')
+    text = text.replace('t._s(t.gvi.rest_time)', 't._s(t.gvi.time_str)')
     start = text.index("gamer_changed:function")
     end = text.index(",warning_plus:function", start)
     text = (
@@ -138,7 +145,7 @@ def patch_controller(text):
     )
     text = text.replace(
         "mounted:function(){var t=this;",
-        "mounted:function(){window.PSS_CONNECTION.attachController(this);this.$nextTick(function(){window.PSS_COMPETITION.attach(this,s.Z);if(!window.PSS_MODES.isCompetition())window.PSS_SPECTATOR.attach(this)});window.UOBTKD_SENSOR_MONITOR.attach(this,s.Z);window.PSS_AUDIO.attachCourt(this);var t=this;",
+        "mounted:function(){window.PSS_CONNECTION.attachController(this);this.$nextTick(function(){window.PSS_COMPETITION.attach(this,s.Z);if(!window.PSS_MODES.isCompetition()){window.PSS_COURT_TRAINING.attach(this,s.Z);window.PSS_SPECTATOR.attach(this)}});window.UOBTKD_SENSOR_MONITOR.attach(this,s.Z);window.PSS_AUDIO.attachCourt(this);var t=this;",
     )
     text = text.replace(
         "beforeDestroy:function(){this.$parent.stopGame()",
@@ -168,8 +175,29 @@ def patch_controller(text):
     text = replace_once(text, 'change_view_mode:function(t){', 'change_view_mode:function(t){if(window.PSS_MODES.isCompetition())return;s.Z.court_view_mode=t;localStorage.setItem("uobtkd_court_layout",String(t));', 'Competition court limit')
     text = replace_once(text, 's.Z.SaveChangdiData(e,this.gvi.game[e]);this.$router.push({name:"GameData"})', 's.Z.SaveChangdiData(e,this.gvi.game[e]);this.$router.push({name:window.PSS_MODES.isCompetition()?"CompetitionSetup":"GameData"})', 'Competition return navigation')
     text = text.replace('window.UOBTKD_SENSOR_MONITOR.detach();this.$parent.stopGame()', 'window.UOBTKD_SENSOR_MONITOR.detach();window.PSS_MODES.leaveCompetition(s.Z);this.$parent.stopGame()')
-    text = text.replace('staticClass:"uobtkd-training",staticStyle:', 'staticClass:"uobtkd-training",class:{"pss-competition":window.PSS_MODES.isCompetition()},staticStyle:',1)
+    text = text.replace('staticClass:"uobtkd-training",staticStyle:', 'staticClass:"uobtkd-training",class:{"pss-competition":window.PSS_MODES.isCompetition(),"pss-court-training":!window.PSS_MODES.isCompetition()},staticStyle:',1)
     text = text.replace('t._v("Athletes")','t._v(window.PSS_MODES.isCompetition()?"Protector test":"Equipment")')
+    # Keep competition's settings, but give continuous training only its relevant fields.
+    begin = text.index('e("div",{staticClass:"modal-body"', text.index('attrs:{id:"myModal"'))
+    depth, quote, escaped, end = 1, None, False, begin + 2
+    while depth:
+        character = text[end]
+        if quote:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+        elif character in "\"'":
+            quote = character
+        elif character == '(':
+            depth += 1
+        elif character == ')':
+            depth -= 1
+        end += 1
+    original_body = text[begin:end]
+    text = text[:begin] + 'window.PSS_MODES.isCompetition()?' + original_body + ':e("div",{staticClass:"modal-body"},[window.PSS_COURT_TRAINING.renderSettings(t,e)])' + text[end:]
     return text
 
 
@@ -312,7 +340,9 @@ def build_assets():
         "modes.js",
         "settings.js",
         "competition.js",
+        "court-training.js",
         "spectator.js",
+        "keybindings.js",
         "navigation.js",
         "connection.js",
         "controller-fixes.js",
@@ -338,7 +368,9 @@ def build_assets():
         ("modes.js", "modes.js"),
         ("settings.js", "settings.js"),
         ("competition.js", "competition.js"),
+        ("court-training.js", "court-training.js"),
         ("spectator.js", "spectator.js"),
+        ("keybindings.js", "keybindings.js"),
         ("navigation.js", "navigation.js"),
         ("connection.js", "connection.js"),
         ("controller.js", "controller-fixes.js"),
@@ -365,7 +397,9 @@ def main():
         shutil.copytree(SOURCE, OUTPUT)
     # The native shell loads this library by its branded path.
     native_library = bytes.fromhex('4c65646153706f72742e646c6c').decode('ascii')
-    shutil.copy2(SOURCE / native_library, OUTPUT / (APP_NAME + '.dll'))
+    library_target = OUTPUT / (APP_NAME + '.dll')
+    if not library_target.exists() or not filecmp.cmp(SOURCE / native_library, library_target, shallow=False):
+        shutil.copy2(SOURCE / native_library, library_target)
     old_library = OUTPUT / native_library
     if old_library.exists():
         old_library.unlink()
@@ -414,6 +448,8 @@ def main():
             if not asset.resolve().is_relative_to(web.resolve()):
                 raise ValueError("Image path escaped the generated interface")
             asset.unlink()
+    (web / 'assets').mkdir(exist_ok=True)
+    shutil.copy2(ROOT / 'src/assets/menu-background.png', web / 'assets/menu-background.png')
     php_config = OUTPUT / 'nginx/php7.4.3nts/php.ini'
     if php_config.exists():
         settings = php_config.read_text(encoding='utf-8')
@@ -451,7 +487,9 @@ def main():
         ["node", str(ROOT / "tools/build_audio.cjs"), str(OUTPUT / "res")],
         check=True,
     )
-    shutil.copy2(ROOT / "src/audio/hit.mp3", web / "hit.mp3")
+    recordings = json.loads((ROOT / 'src/audio.json').read_text(encoding='utf-8'))['hitClips'] + list(json.loads((ROOT / 'src/audio.json').read_text(encoding='utf-8')).get('clips', {}).values())
+    for recording in recordings:
+        shutil.copy2(ROOT / 'src/audio' / recording, web / recording)
     (OUTPUT / "res").mkdir(exist_ok=True)
     # Pre-filter at the native client's display size. The legacy static bitmap
     # control's minification produces dark contours on gradients and fine edges.

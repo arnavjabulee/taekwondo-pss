@@ -204,6 +204,12 @@
           ]),
           h('div', { staticClass: 'pss-inventory-scroll' }, [
             h('table', { staticClass: 'pss-inventory-table' }, [
+              h(
+                'colgroup',
+                [14, 14, 9, 6, 9, 14, 25, 9].map(function (width) {
+                  return h('col', { style: { width: width + '%' } });
+                })
+              ),
               h('thead', [
                 h(
                   'tr',

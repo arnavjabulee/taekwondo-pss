@@ -1,4 +1,4 @@
-/* Unbranded, locally synthesised cues. No media downloads or vendor recordings. */
+/* Shared playback for local recordings and synthesised timer cues. */
 (function (root) {
   'use strict';
   var config =
@@ -8,8 +8,12 @@
   var STORAGE_KEY = 'bristol_audio_v1';
 
   function hitRate(kind, key) {
+    return 1; // Restarts are baked into the clips; playback stays at the original speed.
+  }
+
+  function hitClip(key) {
     var id = Math.max(1, Math.floor(Number(key) || 1));
-    return Math.pow(2, kind === 'court' ? ((id - 1) % 16) / 32 : ((id - 1) % 256) / 256);
+    return config.hitClips[(id - 1) % config.hitClips.length];
   }
 
   function hitPattern(kind, key) {
@@ -32,7 +36,7 @@
       gap = 0.025;
     var length = Math.ceil(
       notes.reduce(function (sum, note) {
-        return sum + note[1] + gap;
+        return sum + note[1] + (typeof note[4] === 'number' ? note[4] : gap);
       }, 0) * rate
     );
     var bytes = new Uint8Array(44 + length * 2),
@@ -57,11 +61,22 @@
     notes.forEach(function (note) {
       var count = Math.floor(note[1] * rate);
       for (var i = 0; i < count; i++) {
-        var envelope = Math.min(1, i / (rate * 0.005)) * Math.pow(1 - i / count, 1.6);
-        var sample = Math.sin((2 * Math.PI * note[0] * i) / rate) * envelope * 0.35;
+        var fade =
+          note[3] === 0
+            ? 1
+            : note[3]
+              ? Math.min(1, Math.max(0, (count - 1 - i) / (rate * note[3])))
+              : Math.pow(1 - i / count, 1.6);
+        var envelope = Math.min(1, i / (rate * 0.005)) * fade;
+        var phase = (note[0] * i) / rate;
+        var wave =
+          note[2] === 'sawtooth'
+            ? 2 * (phase - Math.floor(phase)) - 1
+            : Math.sin(2 * Math.PI * phase);
+        var sample = wave * envelope * 0.35;
         data.setInt16(44 + (position + i) * 2, Math.round(sample * 32767), true);
       }
-      position += count + Math.floor(gap * rate);
+      position += count + Math.floor((typeof note[4] === 'number' ? note[4] : gap) * rate);
     });
     var binary = '';
     for (var index = 0; index < bytes.length; index++) binary += String.fromCharCode(bytes[index]);
@@ -140,11 +155,16 @@
           notes.forEach(function (note) {
             var oscillator = context.createOscillator(),
               gain = context.createGain();
-            oscillator.type = 'sine';
+            oscillator.type = note[2] || 'sine';
             oscillator.frequency.setValueAtTime(note[0], cursor);
             gain.gain.setValueAtTime(0.0001, cursor);
             gain.gain.exponentialRampToValueAtTime(0.55, cursor + 0.005);
-            gain.gain.exponentialRampToValueAtTime(0.0001, cursor + note[1]);
+            if (note[3] === 0) {
+              gain.gain.setValueAtTime(0, cursor + note[1]);
+            } else if (note[3]) {
+              gain.gain.setValueAtTime(0.55, cursor + Math.max(0.005, note[1] - note[3]));
+              gain.gain.linearRampToValueAtTime(0.0001, cursor + note[1]);
+            } else gain.gain.exponentialRampToValueAtTime(0.0001, cursor + note[1]);
             oscillator.connect(gain);
             gain.connect(master);
             oscillator.onended = function () {
@@ -152,8 +172,8 @@
               gain.disconnect();
             };
             oscillator.start(cursor);
-            oscillator.stop(cursor + note[1] + 0.005);
-            cursor += note[1] + 0.025;
+            oscillator.stop(cursor + note[1] + (note[3] === 0 ? 0 : 0.005));
+            cursor += note[1] + (typeof note[4] === 'number' ? note[4] : 0.025);
           });
           voices.push(cursor);
           return true;
@@ -198,8 +218,28 @@
       }
     }
     function event(name) {
-      var played = config.events[name] ? nativePlay(name) : false;
-      if (played === null) played = play(config.events[name], true);
+      var clip = config.clips && config.clips[name];
+      if (!config.events[name] && !clip) return false;
+      var played = config.events[name] || clip ? nativePlay(name) : false;
+      if (played === null && clip) {
+        played = false;
+        if (state.enabled && state.volume && host.Audio) {
+          try {
+            var player = new host.Audio(clip);
+            player.volume = state.volume;
+            media = media.filter(function (item) {
+              return !item.ended && !item.paused;
+            });
+            if (media.length >= 16) media.shift().pause();
+            media.push(player);
+            var pending = player.play();
+            if (pending && pending.catch) pending.catch(unavailable);
+            played = true;
+          } catch (error) {
+            unavailable();
+          }
+        }
+      } else if (played === null) played = play(config.events[name], true);
       signal({ type: 'event', name: name, played: played });
       return played;
     }
@@ -212,11 +252,11 @@
         played = false;
         if (state.enabled && state.volume && host.Audio) {
           try {
-            var player = new host.Audio('hit.mp3');
+            var player = new host.Audio(hitClip(nativeId));
             player.volume = state.volume;
             player.playbackRate = hitRate(kind, key);
-            player.preservesPitch = false;
-            player.webkitPreservesPitch = false;
+            player.preservesPitch = true;
+            player.webkitPreservesPitch = true;
             media = media.filter(function (item) {
               return !item.ended && !item.paused;
             });
@@ -380,6 +420,7 @@
   api.createAudio = createAudio;
   api.hitPattern = hitPattern;
   api.hitRate = hitRate;
+  api.hitClip = hitClip;
   api.wavData = wavData;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PSS_AUDIO = api;

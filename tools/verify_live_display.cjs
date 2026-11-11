@@ -8,14 +8,18 @@ assert.deepEqual(engine.leaders(court), { left: true, right: false });
 court.right.score = 2;
 court.right.technical_head = 1;
 assert.deepEqual(engine.leaders(court), { left: false, right: true });
-court.left.technical_body = 1;
-court.left.body_points = 4;
-assert.equal(engine.leaders(court).left, true);
-assert.equal(engine.leaders(court).right, false);
-court.right.head_points = 4;
+court.left.technical_head = 1;
+court.left.first_pss_score = 1;
+court.right.first_pss_score = 2;
+assert.deepEqual(engine.leaders(court), { left: true, right: false });
+court.left.first_pss_score = court.right.first_pss_score = 0;
 court.right.weak_head = 1;
 assert.deepEqual(engine.leaders(court), { left: false, right: true });
 court.left.weak_body = 1;
+court.left.first_pss_hit = 2;
+court.right.first_pss_hit = 1;
+assert.deepEqual(engine.leaders(court), { left: false, right: true });
+court.left.first_pss_hit = court.right.first_pss_hit = 0;
 assert.deepEqual(engine.leaders(court), { left: true, right: true });
 for (const [phase, remaining, expected] of [
   ['running', 10, '00:10'],

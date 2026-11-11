@@ -16,12 +16,16 @@
         ><button id="fullscreen" type="button">Full screen</button>
       </header>
       <section id="training-board">
-        <div id="training-status"></div>
+        <div id="training-status">
+          <span id="training-phase"></span><strong id="training-clock"></strong
+          ><span id="training-total"></span>
+        </div>
         <div id="training-cards"></div>
       </section>
       <section class="test-mode" aria-label="Protector testing">
         <div class="test-person test-blue">
           <h1 id="test-blue-name">Blue</h1>
+          <div class="test-club" id="test-blue-club"></div>
           <div class="test-device test-head" id="test-blue-head">
             <div class="protector-shape circle">HEAD</div>
             <div class="test-reading"></div>
@@ -35,6 +39,7 @@
         </div>
         <div class="test-person test-red">
           <h1 id="test-red-name">Red</h1>
+          <div class="test-club" id="test-red-club"></div>
           <div class="test-device test-head" id="test-red-head">
             <div class="protector-shape circle">HEAD</div>
             <div class="test-reading"></div>
@@ -56,19 +61,24 @@
             role="img"
             aria-label="Blue lead indicator"
           ></span
-          ><span id="blue-name">Blue</span>
+          ><span class="competitor-identity"
+            ><span id="blue-name">Blue</span><small id="blue-club"></small
+          ></span>
         </h1>
         <div class="points" id="blue-score">0</div>
         <div class="weak-meter-slot">
           <div class="weak-meter" id="blue-weak-meter" style="display: none">
             <div class="weak-track">
-              <span class="threshold-mark"><b></b></span><span class="measured-mark"><b></b></span>
+              <span class="threshold-mark"></span><b class="threshold-value"></b
+              ><span class="measured-mark"></span><b class="measured-value"></b>
             </div>
           </div>
         </div>
         <div class="side-totals">
           <div>
             <div class="weak-summary" aria-label="Blue below-threshold hits">
+              <small id="blue-ivr">IVR AVAILABLE</small>
+              <small>PUNCHES <span id="blue-punches">0</span></small>
               <small>BELOW THRESHOLD</small>
               <div>
                 <span class="weak-icon circle" title="Head"></span><span id="blue-weak-head">0</span
@@ -99,13 +109,16 @@
             role="img"
             aria-label="Red lead indicator"
           ></span
-          ><span id="red-name">Red</span>
+          ><span class="competitor-identity"
+            ><span id="red-name">Red</span><small id="red-club"></small
+          ></span>
         </h1>
         <div class="points" id="red-score">0</div>
         <div class="weak-meter-slot">
           <div class="weak-meter" id="red-weak-meter" style="display: none">
             <div class="weak-track">
-              <span class="threshold-mark"><b></b></span><span class="measured-mark"><b></b></span>
+              <span class="threshold-mark"></span><b class="threshold-value"></b
+              ><span class="measured-mark"></span><b class="measured-value"></b>
             </div>
           </div>
         </div>
@@ -113,6 +126,8 @@
           <div><span>ROUNDS WON</span><strong id="red-wins">0</strong></div>
           <div>
             <div class="weak-summary" aria-label="Red below-threshold hits">
+              <small id="red-ivr">IVR AVAILABLE</small>
+              <small>PUNCHES <span id="red-punches">0</span></small>
               <small>BELOW THRESHOLD</small>
               <div>
                 <span class="weak-icon circle" title="Head"></span><span id="red-weak-head">0</span

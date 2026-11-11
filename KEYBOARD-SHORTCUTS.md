@@ -1,5 +1,7 @@
 # Shortcuts
 
+Change bindings in **Settings → Keyboard**. Defaults:
+
 | Key | Action |
 | --- | --- |
 | Space | Start, pause or resume the active session; ignored while editing or in a dialog. |

@@ -72,6 +72,9 @@ async function verifyFreeTraining(page, artifacts) {
     host.onClientState(true);
   });
   await page.getByRole('button', { name: 'Start tracking', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelector('[data-free-stopwatch]').textContent !== '00:00'
+  );
   await people.nth(0).locator('[data-person-name]').fill('Riley Morgan');
   await page.evaluate(() => window.OnVkSpace());
   assert.equal(
@@ -162,6 +165,37 @@ async function verifyFreeTraining(page, artifacts) {
     .waitFor();
   assert.equal(await freeTV.locator('.match-centre').isVisible(), false);
   await freeTV.screenshot({ path: path.join(artifacts, 'spectator-free.png') });
+  await page.getByLabel('Free training timer', { exact: true }).selectOption('rounds');
+  await page.getByLabel('Free training duration in seconds', { exact: true }).fill('60');
+  await page.getByLabel('Free training duration in seconds', { exact: true }).press('Tab');
+  await page.getByLabel('Free training break in seconds', { exact: true }).fill('30');
+  await page.getByLabel('Free training break in seconds', { exact: true }).press('Tab');
+  await page.getByRole('button', { name: 'Start tracking', exact: true }).click();
+  await freeTV.locator('#training-phase').getByText('Training', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Free training timer', { exact: true }).isDisabled(), true);
+  await page.evaluate(() => {
+    const v = document.querySelector('.pss-free').__vue__;
+    v.receive('000000000002,value:320');
+    v._roundTickAt -= 60000;
+    v.updateStopwatch();
+  });
+  await freeTV.locator('#training-phase').getByText('Break', { exact: true }).waitFor();
+  const breakScore = await page.locator('.pss-free-score').first().innerText();
+  await page.evaluate(() =>
+    document.querySelector('.pss-free').__vue__.receive('000000000002,value:320')
+  );
+  assert.equal(await page.locator('.pss-free-score').first().innerText(), breakScore);
+  await page.screenshot({ path: path.join(artifacts, 'free-training-round-break.png') });
+  await page.evaluate(() => {
+    const v = document.querySelector('.pss-free').__vue__;
+    v._roundTickAt -= v.roundRemainingMs + 1;
+    v.updateStopwatch();
+  });
+  await freeTV.locator('#training-phase').getByText('Training', { exact: true }).waitFor();
+  assert.equal(await page.locator('.pss-free-score').first().innerText(), 'Score: 0');
+  await page.getByRole('button', { name: 'Pause tracking', exact: true }).click();
+  await page.getByLabel('Free training timer', { exact: true }).selectOption('stopwatch');
+
   await people.nth(0).locator('[data-person-name]').fill('Riley Morgan');
   // Restore the persisted score expected below, without sending any hardware command.
   await page.evaluate(() => {
@@ -169,9 +203,52 @@ async function verifyFreeTraining(page, artifacts) {
     v.session.participants[0].score = 1;
     v.save();
   });
+  const freeClosed = freeTV.waitForEvent('close');
   await page.getByRole('button', { name: 'Close spectator window', exact: true }).click();
-  await freeTV.waitForEvent('close');
+  await freeClosed;
+  await page.getByRole('button', { name: 'Reset stopwatch', exact: true }).click();
+  assert.equal(await page.locator('[data-free-stopwatch]').innerText(), '00:00');
+  const freeLayout = await page.evaluate(() => ({
+    height: innerHeight,
+    scroll: document.documentElement.scrollHeight,
+    buttons: Array.from(document.querySelectorAll('.pss-free-actions button')).map(
+      (el) => el.getBoundingClientRect().bottom
+    )
+  }));
+  assert(freeLayout.scroll <= freeLayout.height + 1, 'Free Training must fit the viewport');
+  assert(
+    freeLayout.buttons.every((bottom) => bottom <= freeLayout.height),
+    'Participant controls must remain visible'
+  );
   await page.screenshot({ path: require('node:path').join(artifacts, 'free-training.png') });
+  for (let i = 0; i < 5; i++)
+    await page.getByRole('button', { name: 'Add person', exact: true }).click();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.evaluate(() => {
+    const view = document.querySelector('.pss-free').__vue__;
+    view.resizeLayout();
+  });
+  assert.equal(await people.count(), 7);
+  assert.equal(await page.locator('.pss-free-pagination').count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Next', exact: true }).count(), 0);
+  const compact = await page.evaluate(() => ({
+    height: innerHeight,
+    scroll: document.documentElement.scrollHeight,
+    bottoms: Array.from(document.querySelectorAll('.pss-free-actions button')).map(
+      (el) => el.getBoundingClientRect().bottom
+    )
+  }));
+  assert(compact.scroll <= compact.height + 1, JSON.stringify(compact));
+  assert(compact.bottoms.every((bottom) => bottom <= compact.height));
+  await page.screenshot({ path: path.join(artifacts, 'free-training-laptop.png') });
+  await page.evaluate(() => {
+    const view = document.querySelector('.pss-free').__vue__;
+    while (view.session.participants.length > 2)
+      view.removePerson(view.session.participants[view.session.participants.length - 1]);
+    view.resizeLayout();
+  });
+  await page.setViewportSize({ width: 1600, height: 1000 });
+
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.getByRole('button', { name: 'Free Training', exact: true }).click();
   people = page.locator('.pss-free-person');
@@ -229,6 +306,20 @@ async function verifyEquipment(page, artifacts) {
     await inventory.locator('[data-equipment="000000000002"] th').innerText(),
     'Red 2 (2)'
   );
+  const geometry = await inventory
+    .locator('.pss-inventory-table thead th')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+  const frame = await inventory.locator('.pss-inventory-scroll').boundingBox();
+  await inventory.getByLabel('Find equipment', { exact: true }).fill('no device can match this');
+  const emptyGeometry = await inventory
+    .locator('.pss-inventory-table thead th')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+  assert.deepEqual(emptyGeometry, geometry);
+  assert.equal(
+    (await inventory.locator('.pss-inventory-scroll').boundingBox()).height,
+    frame.height
+  );
+  await inventory.getByLabel('Find equipment', { exact: true }).fill('');
   const row = inventory.locator('[data-equipment="000000000002"]');
   await row.getByLabel('Size', { exact: true }).fill('2 ');
   await page.evaluate(() => {
@@ -323,6 +414,14 @@ async function verifyCompetition(page, artifacts) {
   await tv.locator('.scoreboard.testing').waitFor();
   await page.getByLabel('Blue competitor name', { exact: true }).fill('Alex Live');
   await page.getByLabel('Red competitor name', { exact: true }).fill('Sam Taylor');
+  await page.getByLabel('Blue club name', { exact: true }).fill('Bristol');
+  await page.getByLabel('Match name', { exact: true }).fill('Bristol Open – Match 12');
+  await page.getByLabel('Body threshold (0–71)', { exact: true }).fill('25');
+  await page.getByLabel('Body threshold (0–71)', { exact: true }).press('Tab');
+  await page.getByLabel('Helmet threshold (0–71)', { exact: true }).fill('1');
+  await page.getByLabel('Helmet threshold (0–71)', { exact: true }).press('Tab');
+  await tv.locator('#event-title').getByText('Bristol Open – Match 12', { exact: true }).waitFor();
+
   await page.getByLabel('Blue Body protector', { exact: true }).selectOption('000000000001');
   await page.getByLabel('Red Body protector', { exact: true }).selectOption('000000000002');
   await page.getByLabel('Blue Head protector', { exact: true }).selectOption('000000000011');
@@ -357,8 +456,13 @@ async function verifyCompetition(page, artifacts) {
   await tv.locator('#test-blue-head .test-reading').getByText('3.00', { exact: true }).waitFor();
   await tv.setViewportSize({ width: 1920, height: 1080 });
   await tv.screenshot({ path: path.join(artifacts, 'spectator-test.png') });
+  assert.equal(await page.getByLabel('Body threshold (0–71)', { exact: true }).inputValue(), '25');
+  await page.getByLabel('Body threshold (0–71)', { exact: true }).fill('8');
+  await page.getByLabel('Body threshold (0–71)', { exact: true }).press('Tab');
   await page.getByRole('button', { name: 'Enter match mode', exact: true }).click();
   await page.locator('.pss-competition .uobtkd-courts:visible').waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Stop', exact: true }).count(), 0);
+  await tv.locator('#blue-club').getByText('Bristol', { exact: true }).waitFor();
   assert.equal(await page.locator('.uobtkd-courts:visible .pss-court').count(), 1);
   assert.equal(await page.locator('.dropdown-toggle:visible').count(), 0);
   assert.equal(await page.locator('.uobtkd-courts:visible input[type="text"]').count(), 0);
@@ -368,11 +472,37 @@ async function verifyCompetition(page, artifacts) {
     host.mqtt_client = { subscribe() {}, publish() {}, end() {} };
     host.onClientState(true);
   });
+  // Simulate a stale connection failing as Start sends device commands.
+  await page.evaluate(() => {
+    const host = document.querySelector('.uobtkd-training').__vue__.$parent;
+    host.mqtt_client = {
+      connected: true,
+      publish() {
+        throw Error('Receiver unavailable');
+      },
+      subscribe() {},
+      end() {}
+    };
+  });
   await page.getByRole('button', { name: 'Start', exact: true }).click();
+  const startedRemaining = await page.evaluate(
+    () => document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.remaining
+  );
+  await page.waitForFunction(
+    (before) => {
+      const state = document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition;
+      return state.phase === 'running' && state.remaining < before - 0.2;
+    },
+    startedRemaining,
+    { timeout: 5000 }
+  );
   await page.evaluate(() => {
     const controller = document.querySelector('.uobtkd-training').__vue__;
     clearInterval(controller.$parent.timer);
     controller.$parent.timer = null;
+    const host = controller.$parent;
+    host.mqtt_client = { connected: true, subscribe() {}, publish() {}, end() {} };
+    host.onClientState(true);
     controller.$parent.onAuthClientMessage('DevData', '000000000001,value:320');
   });
   assert.equal(await page.locator('.uobtkd-courts:visible .pss-score').nth(1).innerText(), '2');
@@ -381,6 +511,30 @@ async function verifyCompetition(page, artifacts) {
     .getByRole('button', { name: 'Open spectator window', exact: true })
     .click();
   await tv.locator('#red-score').getByText('2', { exact: true }).waitFor();
+  await page.evaluate(() => {
+    window.__manualScoreCues = [];
+    window.PSS_AUDIO.subscribe((cue) => window.__manualScoreCues.push(cue));
+  });
+  await page
+    .locator('.uobtkd-courts:visible')
+    .getByRole('button', { name: 'Blue add 1 points', exact: true })
+    .click();
+  await tv.locator('#blue-punches').getByText('1', { exact: true }).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.__manualScoreCues.map((cue) => [cue.type, cue.kind, cue.key])),
+    [['hit', 'court', 1]]
+  );
+
+  assert.match(
+    await page.locator('.uobtkd-courts:visible .pss-blue .pss-kick-stats').innerText(),
+    /punches 1/
+  );
+  await page
+    .locator('.uobtkd-courts:visible')
+    .getByRole('button', { name: 'Blue remove 1 points', exact: true })
+    .click();
+  await tv.locator('#blue-punches').getByText('0', { exact: true }).waitFor();
+
   assert.equal(
     await tv.locator('#red-leading').evaluate((el) => el.classList.contains('lit')),
     true
@@ -448,6 +602,14 @@ async function verifyCompetition(page, artifacts) {
   await tv.locator('#blue-weak-body').getByText('1', { exact: true }).waitFor();
   await tv.locator('#blue-weak-meter').waitFor({ state: 'visible' });
   assert.match(await tv.locator('#blue-weak-meter').innerText(), /8\s+5/);
+  const tvLabelY = await tv
+    .locator('#blue-weak-meter b')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().y));
+  assert(Math.abs(tvLabelY[0] - tvLabelY[1]) < 0.5);
+  const panelLabelY = await liveCourt
+    .locator('.pss-blue .pss-panel-weak-meter b')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().y));
+  assert(Math.abs(panelLabelY[0] - panelLabelY[1]) < 0.5);
   await tv.screenshot({ path: path.join(artifacts, 'spectator-weak-hit.png') });
   await tv.waitForTimeout(1800);
   await page.evaluate(() =>
@@ -469,10 +631,8 @@ async function verifyCompetition(page, artifacts) {
   assert.equal(await tv.locator('#blue-weak-body').innerText(), '1');
   const beforeDisconnect = await page.evaluate(() => {
     const c = document.querySelector('.uobtkd-training').__vue__;
-    return { time: c.time, score: c.gvi.game[0].right.score };
-  });
-  await page.evaluate(() => {
-    const host = document.querySelector('.uobtkd-training').__vue__.$parent;
+    const before = { time: c.gvi.game[0].competition.remaining, score: c.gvi.game[0].right.score };
+    const host = c.$parent;
     host.mqtt_client = {
       connected: false,
       publish() {
@@ -484,6 +644,7 @@ async function verifyCompetition(page, artifacts) {
       end() {}
     };
     host.onClientState(false);
+    return before;
   });
   assert.equal(
     await page.evaluate(() => document.querySelector('.uobtkd-training').__vue__.gvi.game_state),
@@ -603,13 +764,13 @@ async function verifyCompetition(page, artifacts) {
   tv.on('websocket', (socket) => tvSockets.push(socket.url()));
   await tv.locator('#red-score').getByText('4', { exact: true }).waitFor();
   await page.bringToFront();
+  assert.equal(await tv.locator('#close-display').isVisible(), false);
+  assert.equal(await tv.locator('#fullscreen').isVisible(), false);
   const closedByButton = tv.waitForEvent('close');
-  await tv
-    .getByRole('button', { name: 'Close display', exact: true })
-    .click()
-    .catch((error) => {
-      if (!tv.isClosed()) throw error;
-    });
+  await page
+    .locator('.uobtkd-courts:visible')
+    .getByRole('button', { name: 'Close spectator window', exact: true })
+    .click();
   await closedByButton;
   assert.equal(
     await page.evaluate(() => document.querySelector('.uobtkd-training').__vue__.gvi.game_state),
@@ -649,10 +810,22 @@ async function verifyCompetition(page, artifacts) {
       .click();
     assert.equal(await match.locator('.pss-score').first().innerText(), '2');
   }
+  assert.equal(
+    await match.getByRole('button', { name: 'Add Blue gam-jeom', exact: true }).isEnabled(),
+    true
+  );
   await match.getByRole('button', { name: 'Add Blue gam-jeom', exact: true }).click();
   assert.equal(await match.locator('.pss-score').nth(1).innerText(), '5');
-  assert.match(await match.locator('.pss-blue .pss-gam-jeom-controls').innerText(), /Gam-jeoms: 1/);
   await match.getByRole('button', { name: 'Remove Blue gam-jeom', exact: true }).click();
+  await match.getByRole('button', { name: 'Raise Blue IVR appeal', exact: true }).click();
+  const pausedReview = page.getByRole('dialog', {
+    name: 'Instant video replay appeal',
+    exact: true
+  });
+  await pausedReview.getByRole('button', { name: 'Successful IVR', exact: true }).click();
+  await match.getByRole('button', { name: 'Undo Blue IVR decision', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'Resume', exact: true }).isVisible(), true);
+
   assert.equal(await match.locator('.pss-score').nth(1).innerText(), '4');
   assert.equal(
     await page.evaluate(() => document.querySelector('.uobtkd-training').__vue__.time),
@@ -703,10 +876,16 @@ async function verifyCompetition(page, artifacts) {
   await match.getByRole('button', { name: 'Blue add 1 points', exact: true }).click();
   assert.match(await match.locator('.pss-round-result').nth(1).innerText(), /Alex Live.*PTG/);
   await page.getByRole('button', { name: 'Start', exact: true }).click();
-  await page.evaluate(() => document.querySelector('.uobtkd-training').__vue__.$parent.stopTimer());
+  await page.evaluate(() => {
+    const c = document.querySelector('.uobtkd-training').__vue__;
+    c.$parent.stopTimer();
+    c.gvi.game[0].competition.rules.rest = 30; // This fixture needs an actual break for penalty entry.
+    c.gvi.game[0].competition.remaining = 1;
+    c.timer_callback();
+    c.$parent.stopTimer();
+  });
   await match.getByRole('button', { name: 'Add Blue gam-jeom', exact: true }).click();
-  await match.getByRole('button', { name: 'Add Blue gam-jeom', exact: true }).click();
-  assert.match(await match.locator('.pss-round-result').nth(2).innerText(), /Sam Taylor.*PUN/);
+  assert.match(await match.locator('.pss-round-result').nth(2).innerText(), /Sam Taylor.*PTF/);
   assert.match(await match.locator('.pss-series-outcome').innerText(), /Match winner: Red.*PTF/);
   assert.match(await match.locator('.pss-series-summary').innerText(), /Blue 1.*2 Red/);
   await tv
@@ -755,7 +934,10 @@ async function verifyCompetition(page, artifacts) {
   await tv.screenshot({ path: path.join(artifacts, 'spectator-legacy-fonts.png') });
   await page.screenshot({ path: path.join(artifacts, 'competition-series.png') });
   await match.getByRole('button', { name: 'Undo last round', exact: true }).click();
-  await match.getByRole('button', { name: 'Remove Blue gam-jeom', exact: true }).click();
+  assert.equal(
+    await match.getByRole('button', { name: 'Remove Blue gam-jeom', exact: true }).isDisabled(),
+    true
+  );
   await match.getByLabel('Result winner', { exact: true }).selectOption('left');
   await match.getByLabel('Win method', { exact: true }).selectOption('RSC');
   await match.getByRole('button', { name: 'Record result', exact: true }).click();
@@ -802,6 +984,12 @@ async function verifyCompetition(page, artifacts) {
   await tv.locator('#phase').getByText('Break', { exact: true }).waitFor();
   await tv.locator('#clock').getByText('00:05', { exact: true }).waitFor();
   assert.equal(await tv.locator('#clock').innerText(), '00:05');
+  await page.keyboard.press('Space');
+  await tv.locator('#phase').getByText('Break paused', { exact: true }).waitFor();
+  await page.keyboard.press('Space');
+  await page.evaluate(() => document.querySelector('.uobtkd-training').__vue__.$parent.stopTimer());
+  await tv.locator('#phase').getByText('Break', { exact: true }).waitFor();
+
   await tv
     .locator('#outcome')
     .getByText(/Blue wins.*PTF/)
@@ -821,6 +1009,62 @@ async function verifyCompetition(page, artifacts) {
     5
   );
   await tv.screenshot({ path: path.join(artifacts, 'spectator-break.png') });
+  await page.evaluate(() => {
+    const c = document.querySelector('.uobtkd-training').__vue__;
+    c.timer_callback();
+    c.timer_callback();
+    c.gameControl();
+  });
+  await match.getByLabel('Win method', { exact: true }).selectOption('WDR');
+  await match.getByRole('button', { name: 'Update previous round', exact: true }).click();
+  await match.getByLabel('Win method', { exact: true }).selectOption('SUP');
+  await match.getByRole('button', { name: 'Update previous round', exact: true }).click();
+  await tv.locator('#phase').getByText('Break paused', { exact: true }).waitFor();
+  await tv.locator('#clock').getByText('00:03', { exact: true }).waitFor();
+  await page.evaluate(() => {
+    const c = document.querySelector('.uobtkd-training').__vue__;
+    c.gameControl();
+    c.$parent.stopTimer();
+  });
+
+  const remainingBreak = await page.evaluate(
+    () => document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.breakRemaining
+  );
+  assert.equal(
+    await match.getByRole('button', { name: 'Blue add 1 points', exact: true }).isEnabled(),
+    true
+  );
+  await match.getByRole('button', { name: 'Blue add 1 points', exact: true }).click();
+  await match.getByRole('button', { name: 'Blue remove 1 points', exact: true }).click();
+  await match.getByRole('button', { name: 'Add Blue gam-jeom', exact: true }).click();
+  await match.getByRole('button', { name: 'Remove Blue gam-jeom', exact: true }).click();
+  if (
+    await page.evaluate(
+      () =>
+        document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.pendingDecision
+    )
+  )
+    await match.getByRole('button', { name: 'Award Red SUP', exact: true }).click();
+  assert.equal(
+    await page.evaluate(
+      () =>
+        document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.breakRemaining
+    ),
+    remainingBreak
+  );
+
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await match.getByRole('button', { name: 'Skip break', exact: true }).click();
+  assert.equal(
+    await page.evaluate(
+      () => document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.phase
+    ),
+    'break'
+  );
+  page.once('dialog', (dialog) => dialog.accept());
+  await match.getByRole('button', { name: 'Skip break', exact: true }).click();
+  await page.getByRole('button', { name: 'Start', exact: true }).waitFor();
+
   await page.evaluate(() => {
     const c = document.querySelector('.uobtkd-training').__vue__;
     for (let i = 0; i < 5; i++) c.timer_callback();
@@ -882,8 +1126,14 @@ async function verifyCompetition(page, artifacts) {
     .waitFor();
   await match.getByRole('button', { name: 'Award Red SUP', exact: true }).click();
   assert.match(await match.locator('.pss-round-result').first().innerText(), /Sam Taylor.*SUP/);
-  await page.getByRole('button', { name: 'Protector test', exact: true }).click();
+  await page.evaluate(() => {
+    const c = document.querySelector('.uobtkd-training').__vue__;
+    c.gvi.game[0].competition.phase = 'finished';
+    c.gvi.game[0].competition.winner = 'right';
+    c.gameControl();
+  });
   await page.locator('.pss-competition-setup').waitFor();
+  assert.equal(await page.getByLabel('Blue club name', { exact: true }).inputValue(), 'Bristol');
   await tv.locator('.scoreboard.testing').waitFor();
   assert.equal(await page.evaluate(() => window.PSS_MODES.isCompetition()), false);
   await page.getByRole('button', { name: 'Home', exact: true }).click();
@@ -916,22 +1166,23 @@ async function verifyMenuSettings(page, artifacts) {
     delete window._menuReceiverClient;
   });
   const menu = page.getByRole('navigation', { name: 'Main menu' });
-  assert.equal(await menu.getByRole('button').count(), 5);
+  assert.equal(await menu.getByRole('button').count(), 6);
   const competition = await menu
     .getByRole('button', { name: 'Competition', exact: true })
     .boundingBox();
   const court = await menu
     .getByRole('button', { name: 'Court Training', exact: true })
     .boundingBox();
-  assert(court.y > competition.y + competition.height);
+  assert(court.y >= competition.y + competition.height);
   await menu.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('.pss-settings').waitFor();
   await page.getByLabel('Round duration in seconds (1–36000)', { exact: true }).fill('90');
-  await page.getByLabel('Rounds (1–99)', { exact: true }).fill('3');
   await page.getByLabel('Break duration in seconds (0–3600)', { exact: true }).fill('0');
+  await page.getByRole('tab', { name: 'Competition', exact: true }).click();
+  await page.getByLabel('Rounds (1–99)', { exact: true }).fill('3');
   await page.getByLabel('Maximum gam-jeoms per round (1–99)', { exact: true }).fill('2');
   await page.getByLabel('Point gap (0 disables, maximum 999)', { exact: true }).fill('0');
-  await page.getByRole('button', { name: 'Save match settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Save settings', exact: true }).click();
   await page.getByText('Settings saved.', { exact: true }).waitFor();
   assert.equal(
     await page.evaluate(() => JSON.parse(localStorage.getItem('xlgame_info')).game_time),
@@ -944,20 +1195,61 @@ async function verifyMenuSettings(page, artifacts) {
     0
   );
   await page.getByLabel('Point gap (0 disables, maximum 999)', { exact: true }).fill('6');
-  await page.getByRole('button', { name: 'Save match settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Save settings', exact: true }).click();
   assert.equal(
     await page.evaluate(
       () => JSON.parse(localStorage.getItem('xlgame_info')).competition_max_gam_jeom
     ),
     2
   );
+  await page.getByRole('tab', { name: 'Training', exact: true }).click();
   await page.getByLabel('Helmet threshold (0–71)', { exact: true }).fill('72');
-  await page.getByRole('button', { name: 'Save match settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Save settings', exact: true }).click();
   await page.getByText(/Check the match settings/).waitFor();
   assert.notEqual(
     await page.evaluate(() => JSON.parse(localStorage.getItem('xlgame_info')).toukui_gate),
     72
   );
+
+  assert.equal(await page.getByRole('tab').count(), 5);
+  await page.getByRole('tab', { name: 'Keyboard', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Change Start / pause / resume shortcut', exact: true })
+    .click();
+  await page.keyboard.press('k');
+  await page.getByText('Shortcut saved.', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.PSS_KEYS.get().toggle), 'K');
+  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Court Training', exact: true }).click();
+  await page.locator('.uobtkd-courts:visible').waitFor();
+  await page.keyboard.press('k');
+  await page.getByRole('button', { name: 'Pause', exact: true }).waitFor();
+  await page.keyboard.press('k');
+  await page.getByRole('button', { name: 'Resume', exact: true }).waitFor();
+  await page.evaluate(() => window.OnVkSpace());
+  assert.equal(await page.getByRole('button', { name: 'Resume', exact: true }).isVisible(), true);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('tab', { name: 'Keyboard', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Change Open equipment shortcut', exact: true }).click();
+  await page.keyboard.press('k');
+  await page.getByText(/already assigned to Start/).waitFor();
+  await page.screenshot({ path: path.join(artifacts, 'settings-keyboard.png') });
+  await page.getByRole('button', { name: 'Restore default shortcuts', exact: true }).click();
+  assert.equal(await page.evaluate(() => window.PSS_KEYS.get().toggle), 'Space');
+  await page.getByRole('tab', { name: 'Sound', exact: true }).click();
+  await page.getByLabel('Preview sound', { exact: true }).selectOption('gamjeom');
+  await page.getByRole('button', { name: 'Play preview', exact: true }).click();
+  await page.getByRole('tab', { name: 'Display', exact: true }).click();
+  await page
+    .getByLabel('Automatically open competition spectator window', { exact: true })
+    .uncheck();
+  assert.equal(
+    await page.evaluate(() => window.PSS_SPECTATOR.preferences.autoOpenCompetition),
+    false
+  );
+  await page.getByLabel('Automatically open competition spectator window', { exact: true }).check();
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.getByRole('navigation', { name: 'Main menu' }).waitFor();
   await page.setViewportSize({ width: 640, height: 480 });
@@ -1104,10 +1396,39 @@ async function main() {
       .waitFor();
     const homeBox = await page.locator('.pss-home').boundingBox();
     const headingBox = await page.locator('.pss-home h1').boundingBox();
-    assert.ok(Math.abs(headingBox.x + headingBox.width / 2 - homeBox.width / 2) < 2);
-    assert.ok(headingBox.y > 150 && headingBox.y < 500);
+    assert(headingBox.x >= 0 && headingBox.y < 100);
+    assert.equal(await page.locator('.pss-launcher-modes .pss-launcher-mode').count(), 3);
     assert.equal(await page.title(), 'UoBTKD Training Suite');
     await page.screenshot({ path: path.join(artifacts, 'home.png') });
+    await page.evaluate(() => {
+      window.__quitCalls = 0;
+      window.HostQuit = () => window.__quitCalls++;
+    });
+    await page.getByRole('button', { name: 'Quit', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.__quitCalls), 1);
+    await page.evaluate(() => {
+      delete window.HostQuit;
+    });
+    await page.getByRole('button', { name: 'Court Training', exact: true }).click();
+    await page.locator('.uobtkd-courts:visible').waitFor();
+    await page.getByRole('button', { name: 'Start', exact: true }).click();
+    await page.waitForFunction(
+      () => document.querySelector('.uobtkd-training').__vue__.gvi.game_state === 2
+    );
+    const offlineSeconds = await page.evaluate(
+      () => document.querySelector('.uobtkd-training').__vue__.time
+    );
+    await page.evaluate(() =>
+      document.querySelector('.uobtkd-training').__vue__.$parent.onClientState(false)
+    );
+    await page.waitForFunction(
+      (seconds) => document.querySelector('.uobtkd-training').__vue__.time < seconds,
+      offlineSeconds
+    );
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Quit', exact: true }).waitFor();
+
     await page.evaluate(() => {
       window.__menuNativeLookups = 0;
       window.HostGetServerInfo = window.HostGetUserInfo = function () {
@@ -1242,15 +1563,268 @@ async function main() {
       .waitFor();
     assert.equal(await courtTV.locator('.training-person strong').first().innerText(), '7');
     assert.equal(await courtTV.locator('.side-totals').first().isVisible(), false);
+    const center = await courtTV.locator('#training-status').boundingBox();
+    const viewport = courtTV.viewportSize();
+    assert(Math.abs(center.x + center.width / 2 - viewport.width / 2) < 2);
+    assert(Math.abs(center.y + center.height / 2 - viewport.height / 2) < 12);
+    assert.equal(await courtTV.locator('#close-display').isVisible(), false);
+    assert.equal(await courtTV.locator('#fullscreen').isVisible(), false);
     await courtTV.screenshot({ path: path.join(artifacts, 'spectator-courts.png') });
+    const courtClosed = courtTV.waitForEvent('close');
     await page
       .getByRole('button', { name: 'Close spectator window', exact: true })
       .filter({ visible: true })
       .click();
-    await courtTV.waitForEvent('close');
+    await courtClosed;
+    await page.evaluate(() => {
+      const c = document.querySelector('.uobtkd-training').__vue__;
+      c.gameinfo.game_time = 1;
+      c.gameinfo.rest_time = 1;
+      c.gameinfo.game_rounds = 1;
+      c.SaveGameInfo();
+      c.gameControl();
+      c.$parent.stopTimer();
+      c.timer_callback();
+    });
+    assert.equal(
+      await page.evaluate(() => document.querySelector('.uobtkd-training').__vue__.gvi.game_state),
+      5
+    );
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByLabel('Training duration in seconds (1–36000)', { exact: true }).fill('2');
+    await page.getByLabel('Training duration in seconds (1–36000)', { exact: true }).press('Tab');
+    await page.getByLabel('Break duration in seconds (0–3600)', { exact: true }).fill('3');
+    await page.getByLabel('Break duration in seconds (0–3600)', { exact: true }).press('Tab');
+    await page.getByRole('button', { name: 'Save Settings', exact: true }).click();
+    const continuous = await page.evaluate(() => {
+      const c = document.querySelector('.uobtkd-training').__vue__;
+      const breakBefore = c.gvi.rest_time;
+      c.timer_callback();
+      c.$parent.stopTimer();
+      const nextDuration = c.time;
+      c.timer_callback();
+      c.timer_callback();
+      c.$parent.stopTimer();
+      return {
+        breakBefore,
+        nextDuration,
+        nextBreak: c.gvi.rest_time,
+        phase: c.gvi.game_state,
+        score: c.gvi.game[0].left.score,
+        winner: c.gvi.winner
+      };
+    });
+    assert.deepEqual(continuous, {
+      breakBefore: 1,
+      nextDuration: 2,
+      nextBreak: 3,
+      phase: 5,
+      score: 0,
+      winner: ''
+    });
+    assert.equal(await page.locator('.uobtkd-timer span').innerText(), '00:03');
+    assert.equal(await page.locator('.uobtkd-round').isVisible(), false);
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
     assert.equal(await page.evaluate(() => window.__menuNativeLookups), 0);
+    await page.evaluate(() =>
+      document.querySelector('.uobtkd-training').__vue__.$router.push({ name: 'Index' })
+    );
+    await page.getByRole('button', { name: 'Competition', exact: true }).waitFor();
+    const escapeWindow = page.waitForEvent('popup');
+    await page.getByRole('button', { name: 'Competition', exact: true }).click();
+    const escapeTV = await escapeWindow;
+    await page.getByRole('button', { name: 'Enter match mode', exact: true }).click();
+    await page.locator('.pss-competition .uobtkd-courts:visible').waitFor();
+    await page.evaluate(() => {
+      const c = document.querySelector('.uobtkd-training').__vue__;
+      c.gameinfo.game_time = 120;
+      c.gameinfo.game_rounds = 3;
+      c.gameinfo.rest_time = 30;
+      c.SaveGameInfo();
+      c.resetCompetitionMatch();
+      c.$parent.onClientState(false);
+      window.OnVkSpace();
+      // Some shells deliver a redundant offline status after Start.
+      c.handleOnlineState(false);
+    });
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.remaining <
+        119.8,
+      null,
+      { timeout: 5000 }
+    );
+    // Native then DOM delivery is one press, even with the Start button focused.
+    await page.getByRole('button', { name: 'Pause', exact: true }).focus();
+    await page.keyboard.press('Space');
+    assert.equal(await page.getByRole('button', { name: 'Pause', exact: true }).isVisible(), true);
+    // Also deduplicate the opposite delivery order on the next press.
+    await page.keyboard.down('Space');
+    await page.evaluate(() => window.OnVkSpace());
+    await page.keyboard.up('Space');
+    assert.equal(await page.getByRole('button', { name: 'Resume', exact: true }).isVisible(), true);
+    await page.keyboard.press('Space');
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.phase ===
+        'running'
+    );
+    const manualCourt = page.locator('.uobtkd-courts:visible');
+    assert.equal(
+      await manualCourt
+        .getByRole('button', { name: 'Raise Blue IVR appeal', exact: true })
+        .isDisabled(),
+      true
+    );
+    assert.equal(
+      await manualCourt
+        .getByRole('button', { name: 'Add Blue gam-jeom', exact: true })
+        .isDisabled(),
+      true
+    );
+    await page.evaluate(() => {
+      const c = document.querySelector('.uobtkd-training').__vue__;
+      c.$parent.stopTimer();
+      c.gvi.game[0].competition.remaining = 30;
+      c.gvi.game[0].competition.decisionMethod = 'SUP';
+      c.recordCompetitionResult();
+    });
+
+    await manualCourt.getByRole('button', { name: 'Raise Blue IVR appeal', exact: true }).click();
+    const ivr = page.getByRole('dialog', { name: 'Instant video replay appeal', exact: true });
+    await ivr.waitFor();
+    await page.keyboard.press('Space');
+    assert.equal(
+      await page.evaluate(
+        () => document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.phase
+      ),
+      'break-paused'
+    );
+    await page.keyboard.press('Escape');
+    await ivr.waitFor({ state: 'hidden' });
+    await manualCourt.getByRole('button', { name: 'Raise Blue IVR appeal', exact: true }).click();
+    await ivr.getByRole('button', { name: 'Successful IVR', exact: true }).click();
+    assert.equal(
+      await manualCourt
+        .getByRole('button', { name: 'Raise Blue IVR appeal', exact: true })
+        .isEnabled(),
+      true
+    );
+    await manualCourt.getByRole('button', { name: 'Raise Red IVR appeal', exact: true }).click();
+    await ivr.getByRole('button', { name: 'Unsuccessful IVR', exact: true }).click();
+    assert.equal(await manualCourt.locator('.pss-blue .pss-score').innerText(), '1');
+    assert.equal(
+      await manualCourt
+        .getByRole('button', { name: 'Raise Red IVR appeal', exact: true })
+        .isDisabled(),
+      true
+    );
+    assert.equal(
+      await manualCourt
+        .getByRole('button', { name: 'Remove Red gam-jeom', exact: true })
+        .isDisabled(),
+      true
+    );
+    await escapeTV.locator('#red-ivr').getByText('IVR UNAVAILABLE', { exact: true }).waitFor();
+    await manualCourt.getByRole('button', { name: 'Undo Red IVR decision', exact: true }).click();
+    assert.equal(await manualCourt.locator('.pss-blue .pss-score').innerText(), '0');
+    assert.equal(
+      await manualCourt
+        .getByRole('button', { name: 'Raise Red IVR appeal', exact: true })
+        .isEnabled(),
+      true
+    );
+    await escapeTV.locator('#red-ivr').getByText('IVR AVAILABLE', { exact: true }).waitFor();
+    await manualCourt.getByRole('button', { name: 'Undo Blue IVR decision', exact: true }).click();
+
+    await manualCourt.getByRole('button', { name: 'Reset match', exact: true }).click();
+    await page.getByRole('button', { name: 'Start', exact: true }).click();
+
+    assert.equal(
+      await manualCourt
+        .getByRole('button', { name: 'Add Blue passive gam-jeom', exact: true })
+        .count(),
+      0
+    );
+    await page.evaluate(() => {
+      const c = document.querySelector('.uobtkd-training').__vue__;
+      c.$parent.stopTimer();
+      c.gvi.game[0].competition.remaining = 10;
+      c.gvi.game[0].competition.decisionMethod = 'SUP';
+      c.recordCompetitionResult();
+    });
+    await manualCourt
+      .getByRole('button', { name: 'Add Blue passive gam-jeom', exact: true })
+      .click();
+    assert.equal(await manualCourt.locator('.pss-red .pss-score').innerText(), '2');
+    assert.equal(
+      await manualCourt.locator('.pss-blue .pss-gam-jeom-controls strong').innerText(),
+      'Gam-jeoms: 1'
+    );
+    assert.equal(
+      await manualCourt
+        .getByRole('button', { name: 'Remove Blue gam-jeom', exact: true })
+        .isDisabled(),
+      true
+    );
+    await manualCourt
+      .getByRole('button', { name: 'Remove Blue passive gam-jeom', exact: true })
+      .click();
+    assert.equal(await manualCourt.locator('.pss-red .pss-score').innerText(), '0');
+
+    await page.evaluate(() => {
+      const c = document.querySelector('.uobtkd-training').__vue__;
+      c.gameStop();
+      c.resetCompetitionMatch();
+      c.gameControl();
+      c.$parent.stopTimer();
+    });
+    for (const points of [2, 3, 1]) {
+      await manualCourt
+        .getByRole('button', { name: 'Blue add ' + points + ' points', exact: true })
+        .click();
+      await manualCourt
+        .getByRole('button', { name: 'Red add ' + points + ' points', exact: true })
+        .click();
+    }
+    await page.evaluate(() => {
+      const c = document.querySelector('.uobtkd-training').__vue__;
+      c.$parent.stopTimer();
+      c.gvi.game[0].competition.remaining = 1;
+      c.timer_callback();
+    });
+    await manualCourt
+      .locator('.pss-round-result')
+      .getByText(/First scoring technique/)
+      .waitFor();
+    assert.equal(
+      await page.evaluate(
+        () =>
+          document.querySelector('.uobtkd-training').__vue__.gvi.game[0].competition.results[0]
+            .winner
+      ),
+      'left'
+    );
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.locator('#myModal').waitFor({ state: 'visible' });
+    await page.evaluate(() => window.OnVkEscape());
+    await page.locator('#myModal').waitFor({ state: 'hidden' });
+    await page.evaluate(() => window.OnVkEscape());
+    await page.locator('.pss-competition-setup').waitFor();
+    await page.evaluate(() => window.OnVkEscape());
+    await page.getByRole('navigation', { name: 'Main menu' }).waitFor();
+    const spectatorClosed = escapeTV.waitForEvent('close');
+    await escapeTV.keyboard.press('Escape').catch((error) => {
+      if (!escapeTV.isClosed()) throw error;
+    });
+    await spectatorClosed;
+    assert.equal(await page.getByRole('navigation', { name: 'Main menu' }).isVisible(), true);
     assert.deepEqual(errors, []);
-    assert.deepEqual(imageRequests, []);
+    assert(imageRequests.length > 0, 'Main-menu background must load');
+    assert(
+      imageRequests.every((url) => new URL(url).pathname === '/assets/menu-background.png'),
+      'Only the main-menu artwork should be loaded'
+    );
     console.log(
       'Browser checks passed: equipment labels, battery responses, hidden IDs, all-screen equipment access, one-court competition scoring/pause, restored training setup, free training, thresholds, and laptop layouts.'
     );

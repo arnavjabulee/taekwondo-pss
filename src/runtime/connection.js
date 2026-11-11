@@ -33,7 +33,7 @@
       host.online = online;
       if (root.PSS_EQUIPMENT) root.PSS_EQUIPMENT.setOnline(online);
       guardClient();
-      if (!online) {
+      if (!online && changed) {
         host.stopTimer();
         store.IS_GAMING = false;
         ['timer_dev_huju', 'timer_dev_toukui'].forEach(function (key) {
@@ -67,6 +67,7 @@
       var view = host._receiverController;
       if (
         !online &&
+        changed &&
         view &&
         !view._isDestroyed &&
         !view._isBeingDestroyed &&

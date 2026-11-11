@@ -1,5 +1,19 @@
 const assert = require('node:assert/strict');
 const free = require('../src/runtime/free-training.js');
+const audio = require('../src/runtime/audio.js');
+const soundRoster = free.createModel();
+for (let i = 0; i < 12; i++) soundRoster.add();
+// Leave gaps in the persistent IDs, then add a new person with an overlapping ID modulo six.
+for (const id of [2, 4, 6, 8, 10, 12]) soundRoster.remove(id);
+soundRoster.remove(11);
+soundRoster.add();
+function checkSounds(roster) {
+  const keys = roster.participants.slice(0, 6).map((person) => free.soundKey(roster, person));
+  assert.deepEqual(keys, [1, 2, 3, 4, 5, 6]);
+  assert.equal(new Set(keys.map(audio.hitClip)).size, 6);
+}
+checkSounds(soundRoster);
+checkSounds(free.createModel(soundRoster.snapshot()));
 
 const model = free.createModel();
 const swaps = free.createModel();
@@ -82,12 +96,16 @@ global.UOBTKD_CONTROLLER_FIXES = { ignoreSpaceShortcut: () => false };
 const actualInterval = global.setInterval,
   actualClear = global.clearInterval;
 global.setInterval = (callback, delay) => {
-  assert.equal(delay, 30000);
-  intervals.set(1, callback);
-  return 1;
+  assert([100, 30000].includes(delay));
+  const id = delay === 30000 ? 1 : 2;
+  intervals.set(id, callback);
+  return id;
 };
 global.clearInterval = (id) => intervals.delete(id);
 const previous = () => {};
+const realNow = Date.now;
+let now = 1000;
+Date.now = () => now;
 const parent = {
   devdata_cb: previous,
   online_cb: null,
@@ -126,13 +144,18 @@ try {
   component.mounted.call(view);
   view.addPerson({ name: 'Person', bodyId: '000000000001' });
   view.start();
-  assert.equal(view.active, false);
+  now += 1250;
+  intervals.get(2)();
+  assert.equal(view.elapsedMs, 1250);
+  assert.equal(free.timeText(view.elapsedMs), '00:01');
+  assert.equal(view.active, true);
   assert.equal(commands.length, 0);
+  assert.equal(intervals.size, 2);
   view.onOnline(true);
   view.start();
   assert.equal(view.active, true);
   assert.equal(commands.length, 4);
-  assert.equal(intervals.size, 1);
+  assert.equal(intervals.size, 2);
   assert.ok(commands.every((item) => item.payload === free.WORK_COMMAND));
   intervals.get(1)();
   assert.equal(commands.length, 8);
@@ -152,16 +175,80 @@ try {
   const reopened = component.data();
   assert.equal(reopened.active, false);
   assert.equal(reopened.session.groupScore(), 1);
+  assert.equal(reopened.elapsedMs, 1250);
+  now += 1000;
+  view.updateStopwatch();
+  assert.equal(view.elapsedMs, 1250, 'Paused time must not accumulate');
   view.start();
+  now += 500;
+  intervals.get(2)();
+  assert.equal(view.elapsedMs, 1750);
+  view.resetStopwatch();
+  assert.equal(view.elapsedMs, 0);
+  now += 200;
+  intervals.get(2)();
+  assert.equal(view.elapsedMs, 200);
+  view.pause();
+  view.changeTimerMode({ target: { value: 'rounds' } });
+  view.setDuration('trainingSeconds', { target: { value: '2' } });
+  view.setDuration('breakSeconds', { target: { value: '1' } });
+  view.start();
+  assert.equal(free.phaseText(view), 'Training');
+  assert.equal(free.clockText(view), '00:02');
+  assert.equal(view.session.groupScore(), 0);
+  view.receive('000000000001,value:320');
+  assert.equal(view.session.groupScore(), 1);
+  now += 2000;
+  intervals.get(2)();
+  assert.equal(view.roundPhase, 'break');
+  assert.equal(free.clockText(view), '00:01');
+  assert.equal(store.IS_GAMING, false);
+  view.receive('000000000001,value:320');
+  assert.equal(view.session.groupScore(), 1, 'Break hits must not score');
+  // Settings changes apply next interval, not to the break currently running.
+  view.setDuration('trainingSeconds', { target: { value: '3' } });
+  view.setDuration('breakSeconds', { target: { value: '2' } });
+  view.pause();
+  const pausedRound = view.roundRemainingMs;
+  now += 5000;
+  view.updateStopwatch();
+  assert.equal(view.roundRemainingMs, pausedRound);
+  assert.equal(component.data().timerMode, 'rounds');
+  assert.equal(component.data().roundPhase, 'break');
+  view.start();
+  now += 1250;
+  intervals.get(2)();
+  assert.equal(view.roundPhase, 'training');
+  assert.equal(view.roundRemainingMs, 2750, 'Carry delayed ticks into the next interval');
+  assert.equal(view.session.groupScore(), 0, 'New intervals reset scores');
+  assert.equal(store.IS_GAMING, true);
+  now += 2750;
+  intervals.get(2)();
+  assert.equal(view.roundPhase, 'break');
+  assert.equal(view.roundRemainingMs, 2000);
+  view.resetRoundTimer();
+  assert.equal(view.active, false);
+  assert.equal(view.roundPhase, 'ready');
+  assert.equal(view.roundRemainingMs, 3000);
+  view.setDuration('breakSeconds', { target: { value: '0' } });
+  view.start();
+  now += 3500;
+  intervals.get(2)();
+  assert.equal(view.roundPhase, 'training');
+  assert.equal(view.roundRemainingMs, 2500, 'Zero break repeats training directly');
+  view.pause();
+  view.changeTimerMode({ target: { value: 'stopwatch' } });
+  assert.equal(view.timerMode, 'stopwatch');
   component.beforeDestroy.call(view);
   assert.equal(intervals.size, 0);
   assert.equal(parent.devdata_cb, previous);
   assert.equal(parent.online_cb, null);
   assert.equal(store.IS_GAMING, false);
 } finally {
+  Date.now = realNow;
   global.setInterval = actualInterval;
   global.clearInterval = actualClear;
 }
 console.log(
-  'Free training checks passed: individual one-hit scoring, thresholds, unlimited roster, resets, persistence, and untimed transport lifecycle.'
+  'Free training checks passed: individual one-hit scoring, thresholds, unlimited roster, resets, persistence, stopwatch, repeating intervals, break scoring, timing edits and transport lifecycle.'
 );

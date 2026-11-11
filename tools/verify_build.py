@@ -14,6 +14,11 @@ spec.loader.exec_module(build)
 
 assets = build.build_assets()
 assert "free-training.js" in assets
+assert "keybindings.js" in assets
+assert 'PSS_KEYS.nativeKey("Space")' in assets["index.js"]
+assert "court-training.js" in assets
+assert "PSS_COURT_TRAINING.attach(this,s.Z)" in assets["45.index.js"]
+assert assets['45.index.js'].index('PSS_COURT_TRAINING.renderSettings') > assets['45.index.js'].index('attrs:{id:"myModal"')
 assert 'equipment.js' in assets and 'modes.js' in assets
 assert 'equipment-page.js' in assets
 assert 'competition.js' in assets

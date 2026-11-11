@@ -1,43 +1,77 @@
 (function () {
   var view = this,
     h = view._self._c;
-  function button(text, action) {
+  function text(value) {
+    return view._v(value);
+  }
+  function launch(name, destination, main) {
     return h(
       'button',
-      { staticClass: 'pss-menu-button', attrs: { type: 'button' }, on: { click: action } },
-      [view._v(text)]
+      {
+        staticClass: main ? 'pss-launcher-mode' : 'pss-launcher-tool',
+        attrs: { type: 'button', 'aria-label': name },
+        on: {
+          click: function () {
+            view.loginAction(destination);
+          }
+        }
+      },
+      main
+        ? [
+            h('span', [text(name)]),
+            h('span', { staticClass: 'pss-launcher-arrow', attrs: { 'aria-hidden': 'true' } }, [
+              text('\u203a')
+            ])
+          ]
+        : [text(name)]
     );
   }
-  var title = window.UOBTKD_CORE.APP_NAME.split(' ');
-  return h('main', { staticClass: 'pss-home', attrs: { id: 'id_home' } }, [
-    h('div', { staticClass: 'pss-menu-content' }, [
-      h('h1', { attrs: { 'aria-label': title[0] + ' Electronic Training Suite' } }, [
-        h('span', { staticClass: 'pss-menu-title' }, [view._v(title[0])]),
-        view._v(' '),
-        h('span', { staticClass: 'pss-menu-subtitle' }, [view._v('Electronic Training Suite')])
+  return h('main', { staticClass: 'pss-home pss-launcher', attrs: { id: 'id_home' } }, [
+    h('header', { staticClass: 'pss-launcher-header' }, [
+      h('h1', { attrs: { 'aria-label': 'UoBTKD Electronic Training Suite' } }, [
+        h('strong', [text('UoBTKD')]),
+        h('span', [text('Electronic Training Suite')])
       ]),
-      h('nav', { staticClass: 'pss-home-actions', attrs: { 'aria-label': 'Main menu' } }, [
-        button('Competition', function () {
-          view.loginAction('CompetitionSetup');
-        }),
-        button('Court Training', function () {
-          view.loginAction('GameCtrl');
-        }),
-        button('Free Training', function () {
-          view.loginAction('FreeTraining');
-        }),
-        h('div', { staticClass: 'pss-menu-secondary' }, [
-          button('Equipment', function () {
-            view.loginAction('GameData');
-          }),
-          button('Settings', function () {
-            view.loginAction('AppSettings');
-          })
+      h(
+        'span',
+        {
+          staticClass: 'pss-launcher-status',
+          class: { online: view.$parent.online },
+          attrs: { role: 'status' }
+        },
+        [
+          h('i', { attrs: { 'aria-hidden': 'true' } }),
+          text(view.$parent.online ? 'Receiver online' : 'Receiver offline')
+        ]
+      )
+    ]),
+    h('div', { staticClass: 'pss-launcher-body' }, [
+      h('nav', { staticClass: 'pss-launcher-menu', attrs: { 'aria-label': 'Main menu' } }, [
+        h('h2', [text('Start a session')]),
+        h('div', { staticClass: 'pss-launcher-modes' }, [
+          launch('Competition', 'CompetitionSetup', true),
+          launch('Court Training', 'GameCtrl', true),
+          launch('Free Training', 'FreeTraining', true)
+        ]),
+        h('div', { staticClass: 'pss-launcher-tools' }, [
+          launch('Equipment', 'GameData', false),
+          launch('Settings', 'AppSettings', false),
+          h(
+            'button',
+            {
+              staticClass: 'pss-launcher-quit',
+              attrs: { type: 'button' },
+              on: {
+                click: function () {
+                  window.PSS_NAV.quit();
+                }
+              }
+            },
+            [text('Quit')]
+          )
         ])
       ])
     ]),
-    h('p', { staticClass: 'pss-home-status' }, [
-      view._v(view.$parent.online ? 'Receiver online' : 'Receiver offline')
-    ])
+    h('footer', { staticClass: 'pss-launcher-footer' }, [text('University of Bristol Taekwondo')])
   ]);
 });

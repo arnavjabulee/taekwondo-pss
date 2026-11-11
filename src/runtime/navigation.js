@@ -22,6 +22,7 @@
   function attach(view, data) {
     if (host) return;
     host = view;
+    if (root.PSS_KEYS) root.PSS_KEYS.attach(view);
     store = data;
     history = [route(host.$route)];
     host.$router.beforeEach(function (to, from, next) {
@@ -49,11 +50,13 @@
           store,
           {
             name: competitionReturn[0].left.gamer,
+            club: competitionReturn[0].left.club,
             bodyId: competitionReturn[0].left.huju,
             helmetId: competitionReturn[0].left.toukui
           },
           {
             name: competitionReturn[0].right.gamer,
+            club: competitionReturn[0].right.club,
             bodyId: competitionReturn[0].right.huju,
             helmetId: competitionReturn[0].right.toukui
           }
@@ -98,32 +101,61 @@
       root.UOBTKD_SENSOR_MONITOR.close();
       return;
     }
+    var controller = activeController();
+    if (
+      controller &&
+      controller.gvi.game[0].competition &&
+      controller.gvi.game[0].competition.ivrPending
+    ) {
+      controller.cancelIVR();
+      return;
+    }
     var modal = root.document.querySelector('.modal.in');
     if (modal && root.jQuery) {
       root.jQuery(modal).modal('hide');
       return;
     }
     if (!host || host.$route.name === 'Index' || backPending) return;
-    var target;
-    if (history.length > 1) {
+    var previousHistory = history.slice(),
+      current = route(host.$route),
+      target;
+    if (history.length > 1) history.pop();
+    while (
+      history.length &&
+      JSON.stringify(history[history.length - 1]) === JSON.stringify(current)
+    )
       history.pop();
-      target = history[history.length - 1];
-    } else
-      target = {
-        name:
-          host.$route.name === 'GameCtrl' && root.PSS_MODES.isCompetition()
-            ? 'CompetitionSetup'
-            : 'Index'
-      };
+    target = history.length
+      ? history[history.length - 1]
+      : {
+          name:
+            host.$route.name === 'GameCtrl' && root.PSS_MODES.isCompetition()
+              ? 'CompetitionSetup'
+              : 'Index'
+        };
     backPending = true;
-    host.$router.push(target);
+    function completed() {
+      backPending = false;
+    }
+    function failed() {
+      backPending = false;
+      if (JSON.stringify(route(host.$route)) === JSON.stringify(current)) history = previousHistory;
+    }
+    try {
+      var pending = host.$router.push(target, completed, failed);
+      if (pending && pending.then) pending.then(completed, failed);
+    } catch (error) {
+      failed();
+    }
   }
+
   function equipment() {
     if (host && host.$route.name !== 'GameData') host.$router.push({ name: 'GameData' });
   }
   root.document.addEventListener(
     'keydown',
     function (event) {
+      if (root.PSS_KEYS) return;
       if (event.key === 'Escape' || event.keyCode === 27) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -132,11 +164,20 @@
     },
     true
   );
-  root.OnVkEscape = back;
+  root.OnVkEscape = function () {
+    if (root.PSS_KEYS) root.PSS_KEYS.nativeKey('Escape');
+    else back();
+  };
   root.PSS_NAV = {
     attach: attach,
     back: back,
     equipment: equipment,
+    quit: function () {
+      if (root.PSS_SPECTATOR) root.PSS_SPECTATOR.close();
+      if (host && host.stopGame) host.stopGame();
+      if (typeof root.HostQuit === 'function') root.HostQuit();
+      else root.close();
+    },
     rewriteEquipment: function (oldId, newId, type) {
       (competitionReturn || []).forEach(function (court) {
         ['left', 'right'].forEach(function (side) {

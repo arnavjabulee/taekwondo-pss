@@ -18,7 +18,7 @@
     ) {
       return true;
     }
-    return !!root.document.querySelector('.modal.in');
+    return !!root.document.querySelector('.modal.in, [data-ivr-dialog]');
   }
   function conflicts(games) {
     var devices = {},
@@ -61,6 +61,10 @@
       left: core.emptyParticipant(),
       right: core.emptyParticipant()
     };
+    if (saved && typeof saved.matchName === 'string')
+      court.matchName = saved.matchName.slice(0, 120);
+    if (saved && typeof saved.helmetLevel === 'number')
+      court.helmetLevel = core.savedLevel(saved.helmetLevel, 1);
     if (saved && saved.competition && root.PSS_MODES && root.PSS_MODES.isCompetition())
       court.competition = JSON.parse(JSON.stringify(saved.competition));
     ['left', 'right'].forEach(function (side, offset) {
@@ -68,6 +72,7 @@
         slot = court[side];
       slot.index = index * 2 + offset;
       slot.gamer = String(old.gamer || '').slice(0, 80);
+      slot.club = String(old.club || '').slice(0, 80);
       slot.huju = core.normalizeId(old.huju);
       slot.toukui = core.normalizeId(old.toukui);
       core.PARTICIPANT_COUNTERS.forEach(function (key) {
@@ -176,7 +181,7 @@
       root.PSS_MODES &&
       root.PSS_MODES.isCompetition() &&
       (root.PSS_COMPETITION
-        ? root.PSS_COMPETITION.active(controller)
+        ? (root.PSS_COMPETITION.canAdjust || root.PSS_COMPETITION.active)(controller)
         : controller.gvi.game_state >= 2)
     );
   }
@@ -184,32 +189,69 @@
     if (root.PSS_MODES && root.PSS_MODES.isCompetition() && root.PSS_COMPETITION)
       root.PSS_COMPETITION.check(controller, store);
   }
+  function adjustmentSound(name) {
+    if (root.PSS_AUDIO && typeof root.PSS_AUDIO.event === 'function') root.PSS_AUDIO.event(name);
+  }
+  function scoringOrder(court, side) {
+    var slot = court[side],
+      other = court[side === 'left' ? 'right' : 'left'];
+    if (!slot.first_score)
+      slot.first_score =
+        slot.first_pss_score || (other.first_score || other.first_pss_score || 0) + 1;
+  }
   function adjustScore(controller, store, side, delta) {
     if (side !== 'left' && side !== 'right') throw new Error('Choose Blue or Red.');
     if ([1, 2, 3, -1, -2, -3].indexOf(delta) < 0)
       throw new Error('Choose a score adjustment from 1 to 3 points.');
     if (!canAdjustCompetition(controller)) return false;
-    var slot = controller.gvi.game[0][side];
+    var slot = controller.gvi.game[0][side],
+      previousScore = slot.score;
     slot.score = Math.max(0, slot.score + delta);
+    if (delta > 0 && slot.score > previousScore) scoringOrder(controller.gvi.game[0], side);
+    if (slot.score !== previousScore) {
+      if (delta > 0 && root.PSS_AUDIO && typeof root.PSS_AUDIO.hit === 'function')
+        root.PSS_AUDIO.hit('court', 1);
+      else adjustmentSound(delta > 0 ? 'addpoints' : 'deduct');
+    }
     var category =
-      Math.abs(delta) === 2 ? 'body_points' : Math.abs(delta) === 3 ? 'head_points' : '';
+      Math.abs(delta) === 2 ? 'body_points' : Math.abs(delta) === 3 ? 'head_points' : 'punches';
     if (category) slot[category] = Math.max(0, (slot[category] || 0) + delta);
     checkCompetition(controller, store);
     store.SaveChangdiData(0, controller.gvi.game[0]);
     controller.SendGameData();
     return true;
   }
-  function adjustGamJeom(controller, store, side, delta) {
+  function canUndoPassive(controller, side) {
+    return !!(
+      root.PSS_COMPETITION &&
+      root.PSS_COMPETITION.canManagePenalties(controller) &&
+      controller.gvi.game[0][side].passive_warnings > 0
+    );
+  }
+  function adjustGamJeom(controller, store, side, delta, passive, ivrPoints) {
     if (side !== 'left' && side !== 'right') throw new Error('Choose Blue or Red.');
     if (delta !== 1 && delta !== -1) throw new Error('Choose add or remove gam-jeom.');
-    if (!canAdjustCompetition(controller)) return false;
+    if (!root.PSS_COMPETITION || !root.PSS_COMPETITION.canManagePenalties(controller)) return false;
     var court = controller.gvi.game[0],
       offender = court[side],
       opponent = court[side === 'left' ? 'right' : 'left'];
-    if (delta < 0 && offender.warning <= 0) return false;
+    var passiveCount = offender.passive_warnings || 0;
+    var ivrCount = offender.ivr_warnings || 0;
+    var ivr = ivrPoints === 1 || ivrPoints === 2;
+    var matchState = root.PSS_COMPETITION && root.PSS_COMPETITION.state(controller);
+    if (passive && delta > 0 && (!matchState || !matchState.started || matchState.remaining > 10))
+      return false;
+    if (
+      delta < 0 &&
+      (passive ? passiveCount <= 0 : offender.warning - passiveCount - ivrCount <= 0)
+    )
+      return false;
     offender.warning = Math.max(0, offender.warning + delta);
-    opponent.score = Math.max(0, opponent.score + delta);
-    checkCompetition(controller, store);
+    if (passive) offender.passive_warnings = passiveCount + delta;
+    if (ivr) offender.ivr_warnings = ivrCount + delta;
+    opponent.score = Math.max(0, opponent.score + delta * (ivr ? ivrPoints : passive ? 2 : 1));
+    adjustmentSound(delta > 0 ? 'gamjeom' : 'deduct');
+    root.PSS_COMPETITION.check(controller, store, true);
     store.SaveChangdiData(0, court);
     controller.SendGameData();
     return true;
@@ -224,10 +266,13 @@
     if (!canAdjustCompetition(controller)) return false;
     var slot = controller.gvi.game[0][side],
       key = 'technical_' + type,
-      points = type === 'head' ? 3 : 2;
+      points = type === 'head' ? 3 : 2,
+      previousScore = slot.score;
     if (delta < 0 && !(slot[key] > 0)) return false;
     slot[key] = (slot[key] || 0) + delta;
     slot.score = Math.max(0, slot.score + delta * points);
+    if (delta > 0 && slot.score > previousScore) scoringOrder(controller.gvi.game[0], side);
+    if (slot.score !== previousScore) adjustmentSound(delta > 0 ? 'addpoints' : 'deduct');
     slot[type + '_points'] = Math.max(0, (slot[type + '_points'] || 0) + delta * points);
     checkCompetition(controller, store);
     store.SaveChangdiData(0, controller.gvi.game[0]);
@@ -246,11 +291,17 @@
     var helmet = equipment.type === 'helmet';
     var threshold = core.rawThreshold(helmet ? controller.gameinfo.toukui_gate : court.lidu);
     var competition = !!(root.PSS_MODES && root.PSS_MODES.isCompetition());
+    var wearer = court[equipment.side];
+    // Arrival order, rather than timestamps, resolves hits received in the same millisecond.
+    if (competition && !opponent.first_pss_hit)
+      opponent.first_pss_hit = (wearer.first_pss_hit || 0) + 1;
     if (hit.value >= threshold) {
       opponent.score += helmet ? 3 : 2;
       if (helmet) opponent.tkhits++;
       else opponent.hjhits++;
       if (competition) {
+        scoringOrder(court, equipment.side === 'left' ? 'right' : 'left');
+        if (!opponent.first_pss_score) opponent.first_pss_score = (wearer.first_pss_score || 0) + 1;
         var pointsKey = helmet ? 'head_points' : 'body_points';
         opponent[pointsKey] = (opponent[pointsKey] || 0) + (helmet ? 3 : 2);
       }
@@ -297,6 +348,7 @@
     canAdjustCompetition: canAdjustCompetition,
     adjustScore: adjustScore,
     adjustGamJeom: adjustGamJeom,
+    canUndoPassive: canUndoPassive,
     adjustTechnical: adjustTechnical,
     scoreHit: scoreHit
   };

@@ -81,6 +81,7 @@
     var stage = root.document.querySelector('.scoreboard');
     stage.classList.toggle('testing', data.mode === 'test');
     stage.classList.toggle('training', data.mode === 'court' || data.mode === 'free');
+    stage.classList.toggle('court-training', data.mode === 'court');
     if (data.mode === 'court' || data.mode === 'free') {
       renderTraining(data);
       return;
@@ -111,8 +112,18 @@
     ['blue', 'red'].forEach(function (side) {
       var person = data[side];
       text(side + '-name', person.name);
+      text(side + '-club', person.club || '');
       text(side + '-score', person.score);
       text(side + '-gam-jeoms', person.gamJeoms);
+      text(side + '-punches', person.punches || 0);
+      text(
+        side + '-ivr',
+        person.ivrPending
+          ? 'IVR IN REVIEW'
+          : person.ivrCard === false
+            ? 'IVR UNAVAILABLE'
+            : 'IVR AVAILABLE'
+      );
       text(side + '-wins', person.wins);
       element(side + '-leading').classList.toggle('lit', !!person.leading);
       element(side + '-leading').style.visibility = 'visible';
@@ -169,11 +180,14 @@
       return;
     }
     meter.style.display = 'block';
+    meter.classList.toggle('labels-close', Math.abs(hit.threshold - hit.level) < 6);
     ['threshold', 'measured'].forEach(function (kind) {
       var value = Number(kind === 'threshold' ? hit.threshold : hit.level) || 0;
       var mark = meter.querySelector('.' + kind + '-mark');
       mark.style.left = Math.max(0, Math.min(100, (value / 72) * 100)) + '%';
-      mark.querySelector('b').textContent = Math.round(value);
+      var label = meter.querySelector('.' + kind + '-value');
+      label.style.left = mark.style.left;
+      label.textContent = Math.round(value);
     });
     weakTimers[side] = root.setTimeout(function () {
       meter.style.display = 'none';
@@ -202,16 +216,22 @@
   }
   function renderTraining(data) {
     text('event-title', data.title);
-    text(
-      'training-status',
-      (data.phase || 'Ready') +
-        (data.time ? ' · ' + data.time : '') +
-        (data.mode === 'free' ? ' · Group score: ' + data.total : '')
-    );
+    text('training-phase', data.phase || 'Ready');
+    text('training-clock', data.time || '00:00');
+    text('training-total', data.mode === 'free' ? 'Group score: ' + data.total : '');
     var cards = element('training-cards');
     while (cards.firstChild) cards.removeChild(cards.firstChild);
     var entries = data.mode === 'free' ? data.people : data.courts;
-    var columns = entries.length <= 1 ? 1 : entries.length <= 4 ? 2 : entries.length <= 9 ? 3 : 4;
+    var columns =
+      data.mode === 'free'
+        ? entries.length <= 4
+          ? 2
+          : 4
+        : entries.length <= 1
+          ? 1
+          : entries.length <= 4
+            ? 2
+            : 4;
     var rows = Math.max(1, Math.ceil(entries.length / columns));
     function person(slot, colour) {
       var node = root.document.createElement('div');
@@ -231,9 +251,22 @@
     entries.forEach(function (entry, index) {
       var card = root.document.createElement('article');
       card.className = 'training-card';
-      card.style.left = ((index % columns) * 100) / columns + '%';
+      var column = index % columns;
+      var courtColumns = entries.length <= 4 ? 2 : 4;
+      if (data.mode === 'free' || (data.mode === 'court' && entries.length > 1)) {
+        columns = courtColumns;
+        rows = Math.ceil(entries.length / columns);
+        column = index % columns;
+        card.style.left =
+          (column < columns / 2
+            ? (column * 80) / columns
+            : 60 + ((column - columns / 2) * 80) / columns) + '%';
+      } else card.style.left = (column * 100) / columns + '%';
       card.style.top = (Math.floor(index / columns) * 100) / rows + '%';
-      card.style.width = 100 / columns + '%';
+      card.style.width =
+        (data.mode === 'free' || (data.mode === 'court' && entries.length > 1)
+          ? 80 / columns
+          : 100 / columns) + '%';
       card.style.height = 100 / rows + '%';
       card.style.fontSize = Math.min(110, 220 / rows) + 'px';
       if (data.mode === 'court') {
@@ -241,11 +274,12 @@
         title.className = 'training-court-title';
         title.textContent = 'Court ' + entry.number;
         card.appendChild(title);
+        if (entries.length === 1) card.className += ' single-court';
         card.appendChild(person(entry.blue, 'blue'));
         card.appendChild(person(entry.red, 'red'));
       } else {
         card.className += ' individual';
-        card.appendChild(person(entry, 'neutral'));
+        card.appendChild(person(entry, entry.colour === 'red' ? 'red' : 'blue'));
       }
       cards.appendChild(card);
     });
@@ -255,7 +289,7 @@
     );
   }
   function renderTest(data) {
-    text('event-title', 'TEST MODE');
+    text('event-title', data.title || 'Competition');
     text(
       'test-mode-status',
       !data.receiverOnline
@@ -266,6 +300,7 @@
     );
     ['blue', 'red'].forEach(function (side) {
       text('test-' + side + '-name', data[side].name);
+      text('test-' + side + '-club', data[side].club || '');
       ['head', 'body'].forEach(function (kind) {
         var device = data[side][kind],
           node = element('test-' + side + '-' + kind);

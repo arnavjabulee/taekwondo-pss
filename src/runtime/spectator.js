@@ -7,6 +7,21 @@
     heartbeat = null,
     viewers = [],
     last = null;
+  var preferences = { autoOpenCompetition: true };
+  try {
+    var savedPreferences = JSON.parse(
+      root.localStorage && root.localStorage.getItem('uobtkd_display_v1')
+    );
+    if (savedPreferences)
+      preferences.autoOpenCompetition = savedPreferences.autoOpenCompetition !== false;
+  } catch (error) {
+    /* Keep the existing display behavior. */
+  }
+  function configure(values) {
+    preferences.autoOpenCompetition = values.autoOpenCompetition !== false;
+    if (root.localStorage)
+      root.localStorage.setItem('uobtkd_display_v1', JSON.stringify(preferences));
+  }
   function url() {
     return 'spectator.html?v=8&channel=' + encodeURIComponent(channel);
   }
@@ -30,8 +45,12 @@
       var slot = court[key];
       return {
         name: slot.gamer || (key === 'left' ? 'Blue' : 'Red'),
+        club: slot.club || '',
         score: slot.score,
         gamJeoms: slot.warning,
+        punches: slot.punches || 0,
+        ivrCard: s.ivrCards ? s.ivrCards[key] : true,
+        ivrPending: !!(s.ivrPending && s.ivrPending.side === key),
         wins: s.wins[key],
         leading: leading[key],
         weakHead: slot.weak_head || 0,
@@ -45,7 +64,7 @@
       channel: channel,
       sentAt: Date.now(),
       connected: connected,
-      title: view.gameinfo.game_name || 'Competition',
+      title: court.matchName || 'Competition',
       phase: s.phase,
       round: Math.min(s.rules.rounds, view.gvi.current_round),
       bestOf: s.rules.rounds,
@@ -74,7 +93,8 @@
         name: slot.gamer || slot.name || '',
         score: slot.score || 0,
         head: slot.tkhits || slot.helmetHits || 0,
-        body: slot.hjhits || slot.bodyHits || 0
+        body: slot.hjhits || slot.bodyHits || 0,
+        colour: view.session && root.PSS_FREE_TRAINING ? root.PSS_FREE_TRAINING.colour(slot) : ''
       };
     }
     var free = !!view.session;
@@ -86,8 +106,18 @@
       connected: connected,
       mode: free ? 'free' : 'court',
       title: free ? 'Free Training' : 'Court Training',
-      phase: free ? (view.active ? 'Tracking' : 'Paused') : view.gvi.game_msg,
-      time: free ? '' : view.gvi.time_str,
+      phase: free
+        ? root.PSS_FREE_TRAINING
+          ? root.PSS_FREE_TRAINING.phaseText(view)
+          : view.active
+            ? 'Tracking'
+            : 'Paused'
+        : view.gvi.game_msg,
+      time: free
+        ? root.PSS_FREE_TRAINING
+          ? root.PSS_FREE_TRAINING.clockText(view)
+          : '00:00'
+        : view.gvi.time_str,
       total: free ? view.session.groupScore() : 0,
       people: free ? view.session.participants.map(person) : [],
       courts: free
@@ -110,7 +140,12 @@
           at: check.at || 0
         };
       }
-      return { name: view[side].name || side, head: device('helmetId'), body: device('bodyId') };
+      return {
+        name: view[side].name || side,
+        club: view[side].club || '',
+        head: device('helmetId'),
+        body: device('bodyId')
+      };
     }
     return {
       type: 'uobtkd-scoreboard',
@@ -120,7 +155,7 @@
       connected: connected,
       mode: 'test',
       phase: 'testing',
-      title: 'TEST MODE',
+      title: view.matchName || 'Competition',
       testing: view.testing,
       receiverOnline: view.online,
       blue: person('blue'),
@@ -217,7 +252,7 @@
   }
   function attachTesting(view) {
     attach(view);
-    open(false);
+    if (preferences.autoOpenCompetition) open(false);
   }
   function controls(view, h) {
     return h('div', { staticClass: 'pss-training-display-controls' }, [
@@ -317,6 +352,8 @@
   }
   var api = {
     attach: attach,
+    preferences: preferences,
+    configure: configure,
     detach: detach,
     publish: publish,
     open: open,

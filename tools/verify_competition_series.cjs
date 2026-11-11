@@ -65,6 +65,22 @@ function setup(options = {}) {
   return { c, store, s: () => engine.state(c), calls, saved, info };
 }
 const x = setup();
+// A stale connection discovered while sending StartWork must not cancel Start.
+const staleReceiver = setup({ game_time: 120 });
+staleReceiver.c.$parent.startGame = function () {
+  staleReceiver.c.handleOnlineState(false);
+};
+staleReceiver.c.gameControl();
+assert.equal(staleReceiver.s().phase, 'running');
+staleReceiver.c.timer_callback();
+assert.equal(staleReceiver.s().remaining, 119);
+staleReceiver.c.handleOnlineState(false);
+assert.equal(staleReceiver.s().phase, 'running', 'Repeated offline updates must not pause');
+staleReceiver.c.handleOnlineState(true);
+staleReceiver.c.handleOnlineState(false);
+assert.equal(staleReceiver.s().phase, 'paused', 'A real mid-match disconnect must pause');
+staleReceiver.c.gameControl();
+assert.equal(staleReceiver.s().phase, 'running', 'Resume must also work offline');
 const { c, store, s } = x;
 c.gameControl();
 assert.equal(s().phase, 'running');
@@ -88,6 +104,8 @@ assert.equal(s().phase, 'ready');
 assert.equal(c.gvi.game[0].left.score, 0);
 assert.equal(c.gvi.current_round, 2);
 c.gameControl();
+c.timer_callback();
+c.timer_callback(); // Penalties are now entered during the round break.
 fixes.adjustGamJeom(c, store, 'left', 1);
 fixes.adjustGamJeom(c, store, 'left', 1);
 assert.equal(s().results[1].method, 'PUN');
@@ -102,7 +120,9 @@ assert.equal(s().results[2].method, 'PTF');
 assert.equal(s().winner, 'right');
 assert.deepEqual(s().wins, { left: 1, right: 2 });
 assert.equal(c.gvi.current_round, 3);
-assert.equal(fixes.adjustScore(c, store, 'right', 3), false);
+assert.equal(fixes.adjustScore(c, store, 'right', 3), true);
+assert.equal(s().results[2].red, 4);
+assert.equal(fixes.adjustScore(c, store, 'right', -3), true);
 assert.equal(engine.undo(c, store), true);
 assert.equal(s().winner, '');
 assert.equal(s().phase, 'decision');
@@ -204,6 +224,24 @@ correction.s().decisionMethod = 'SUP';
 engine.amend(correction.c, correction.store);
 assert.equal(correction.s().winner, '');
 assert.equal(correction.s().phase, 'break');
+assert.equal(correction.s().breakRemaining, 9, 'Reopening a result must not restart the break');
+correction.c.gameControl();
+assert.equal(correction.s().phase, 'break-paused');
+correction.s().decisionMethod = 'WDR';
+engine.amend(correction.c, correction.store);
+correction.s().decisionMethod = 'SUP';
+engine.amend(correction.c, correction.store);
+assert.equal(correction.s().phase, 'break-paused');
+assert.equal(correction.s().breakRemaining, 9);
+correction.c.gameControl();
+for (let i = 0; i < 9; i++) correction.c.timer_callback();
+assert.equal(correction.s().phase, 'ready');
+correction.s().decisionMethod = 'WDR';
+engine.amend(correction.c, correction.store);
+correction.s().decisionMethod = 'SUP';
+engine.amend(correction.c, correction.store);
+assert.equal(correction.s().phase, 'ready', 'An expired break must stay expired');
+assert.equal(correction.s().breakRemaining, 0);
 // Recreated controllers keep the full series and remaining time, then return paused.
 const resume = setup();
 resume.c.gameControl();
@@ -222,8 +260,8 @@ assert.equal(engine.rules({ competition_max_gam_jeom: 0 }).gamJeoms, 5);
 assert(
   sounds.includes('roundEnd') &&
     sounds.includes('breakEnd') &&
-    sounds.includes('pause') &&
-    sounds.includes('resume')
+    !sounds.includes('pause') &&
+    !sounds.includes('resume')
 );
 console.log(
   'Competition series passed: PTG/PUN/PTF/SUP, best-of-3/5, even ties, zero gap, terminal referee outcomes, undo/reset, breaks, offline/settings pause and restored state.'
@@ -236,3 +274,130 @@ assert.equal(interruptedBreak.s().phase, 'break');
 interruptedBreak.c.handleOnlineState(false);
 assert.equal(interruptedBreak.s().phase, 'break-paused');
 assert.equal(interruptedBreak.s().breakRemaining, 5);
+
+const offline = setup({ game_time: 30 });
+offline.c.gvi.online = false;
+offline.c.gameControl();
+assert.equal(offline.s().phase, 'running');
+fixes.adjustScore(offline.c, offline.store, 'left', 1);
+assert.equal(offline.c.gvi.game[0].left.score, 1);
+offline.c.timer_callback();
+assert.equal(offline.s().remaining, 29);
+offline.c.gameControl();
+assert.equal(offline.s().phase, 'paused');
+offline.c.gameControl();
+assert.equal(offline.s().phase, 'running');
+
+const skip = setup({ rest_time: 30 });
+skip.c.gameControl();
+fixes.adjustScore(skip.c, skip.store, 'left', 2);
+fixes.adjustScore(skip.c, skip.store, 'left', 2);
+assert.equal(skip.s().phase, 'break');
+global.confirm = () => false;
+assert.equal(engine.skipBreak(skip.c, skip.store), false);
+assert.equal(skip.s().breakRemaining, 30);
+global.confirm = () => true;
+assert.equal(engine.skipBreak(skip.c, skip.store), true);
+assert.equal(skip.s().phase, 'ready');
+assert.equal(skip.s().remaining, 2);
+assert.equal(skip.s().results.length, 1);
+assert.equal(engine.skipBreak(skip.c, skip.store), false);
+const undecided = setup({ rest_time: 30 });
+undecided.c.gameControl();
+undecided.c.timer_callback();
+undecided.c.timer_callback();
+assert.equal(undecided.s().pendingDecision, true);
+assert.equal(engine.skipBreak(undecided.c, undecided.store), true);
+assert.equal(undecided.s().phase, 'decision');
+assert.equal(undecided.s().pendingDecision, true);
+delete global.confirm;
+const complete = setup();
+complete.s().phase = 'finished';
+complete.s().winner = 'left';
+let destination;
+complete.c.$router = { push: (value) => (destination = value) };
+complete.c.gameControl();
+assert.equal(destination.name, 'CompetitionSetup');
+
+const corrections = setup({ game_time: 1, rest_time: 30, competition_point_gap: 0 });
+corrections.c.gameControl();
+fixes.adjustScore(corrections.c, corrections.store, 'left', 1);
+corrections.c.timer_callback();
+corrections.s().breakRemaining = 17;
+assert.equal(fixes.adjustScore(corrections.c, corrections.store, 'right', 2), true);
+assert.equal(corrections.s().results.length, 1);
+assert.equal(corrections.s().results[0].winner, 'right');
+assert.equal(corrections.s().results[0].red, 2);
+assert.equal(corrections.s().breakRemaining, 17);
+assert.deepEqual(corrections.s().wins, { left: 0, right: 1 });
+fixes.adjustGamJeom(corrections.c, corrections.store, 'right', 1);
+fixes.adjustGamJeom(corrections.c, corrections.store, 'right', 1);
+assert.equal(corrections.s().results[0].method, 'PUN');
+assert.equal(corrections.s().results[0].winner, 'left');
+fixes.adjustGamJeom(corrections.c, corrections.store, 'right', -1);
+assert.equal(corrections.s().results[0].winner, 'left');
+assert.equal(corrections.s().results[0].method, 'PTF');
+corrections.c.gameControl();
+assert.equal(corrections.s().phase, 'break-paused');
+fixes.adjustTechnical(corrections.c, corrections.store, 'left', 'head', 1);
+assert.equal(corrections.s().results[0].winner, 'left');
+assert.equal(corrections.s().results[0].snapshot.left.technical_head, 1);
+assert.equal(corrections.s().phase, 'break-paused');
+assert.equal(corrections.s().breakRemaining, 17);
+const retie = setup({ game_time: 1, rest_time: 30, competition_point_gap: 0 });
+retie.c.gameControl();
+fixes.adjustScore(retie.c, retie.store, 'left', 1);
+retie.c.timer_callback();
+retie.s().breakRemaining = 12;
+fixes.adjustScore(retie.c, retie.store, 'right', 1);
+assert.equal(retie.s().pendingDecision, false);
+assert.equal(retie.s().results.length, 1);
+assert.equal(retie.s().results[0].winner, 'left');
+assert.equal(retie.s().results[0].basis, 'First scoring technique');
+assert.equal(retie.s().breakRemaining, 12);
+fixes.adjustGamJeom(retie.c, retie.store, 'left', 1);
+assert.equal(retie.s().results.length, 1);
+assert.equal(retie.s().results[0].winner, 'right');
+assert.equal(retie.s().breakRemaining, 12);
+const finalEdit = setup({ game_rounds: 1, game_time: 1, competition_point_gap: 0 });
+finalEdit.c.gameControl();
+fixes.adjustScore(finalEdit.c, finalEdit.store, 'left', 1);
+finalEdit.c.timer_callback();
+assert.equal(finalEdit.s().phase, 'finished');
+fixes.adjustScore(finalEdit.c, finalEdit.store, 'right', 2);
+assert.equal(finalEdit.s().winner, 'right');
+assert.equal(finalEdit.s().results.length, 1);
+assert.equal(finalEdit.s().results[0].snapshot.right.score, 2);
+
+const voted = setup({ game_time: 1, rest_time: 30, competition_point_gap: 0 });
+voted.c.gameControl();
+voted.c.timer_callback();
+voted.s().decisionSide = 'left';
+voted.s().decisionMethod = 'SUP';
+engine.record(voted.c, voted.store);
+fixes.adjustScore(voted.c, voted.store, 'right', -1);
+assert.equal(voted.s().results.length, 1);
+assert.equal(voted.s().results[0].method, 'SUP');
+assert.equal(voted.s().pendingDecision, false);
+
+const matchThreshold = setup();
+matchThreshold.c.gvi.game[0].helmetLevel = 4;
+matchThreshold.c.gameinfo.toukui_gate = 1;
+engine.attach(matchThreshold.c, matchThreshold.store);
+assert.equal(matchThreshold.c.gameinfo.toukui_gate, 4);
+assert.equal(
+  matchThreshold.info.toukui_gate,
+  undefined,
+  'Match helmet threshold must not silently overwrite defaults'
+);
+
+const pausedVote = setup({ game_time: 1, rest_time: 10 });
+pausedVote.c.gameControl();
+pausedVote.c.timer_callback();
+pausedVote.c.gameControl();
+assert.equal(pausedVote.s().phase, 'break-paused');
+pausedVote.s().decisionSide = 'left';
+pausedVote.s().decisionMethod = 'SUP';
+engine.record(pausedVote.c, pausedVote.store);
+assert.equal(pausedVote.s().phase, 'break-paused');
+assert.equal(pausedVote.s().breakRemaining, 10);

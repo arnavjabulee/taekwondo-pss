@@ -23,14 +23,23 @@ const store = {
     data[i] = JSON.parse(JSON.stringify(value));
   }
 };
-const blue = { name: 'Alex', bodyId: '000000000001', helmetId: '000000000011' },
+const blue = { name: 'Alex', club: 'Bristol', bodyId: '000000000001', helmetId: '000000000011' },
   red = { name: 'Sam', bodyId: '000000000002', helmetId: '000000000012' };
 assert.throws(() => modes.enterCompetition(store, 0, 1));
 assert.throws(() => modes.enterCompetition(store, blue, { ...red, bodyId: blue.bodyId }));
-modes.enterCompetition(store, blue, red);
+modes.enterCompetition(store, blue, red, {
+  matchName: 'Championship final',
+  bodyLevel: 25,
+  helmetLevel: 4
+});
 assert.equal(modes.isCompetition(), true);
 assert.equal(store.court_view_mode, 0);
 assert.equal(data[0].left.gamer, 'Alex');
+assert.equal(data[0].matchName, 'Championship final');
+assert.equal(data[0].lidu, 25);
+assert.equal(data[0].helmetLevel, 4);
+assert.equal(data[0].left.club, 'Bristol');
+assert.equal(data[0].right.club, '');
 assert.equal(data[0].right.gamer, 'Sam');
 assert(data.slice(1).every((c) => !c.left.huju && !c.right.huju));
 modes.leaveCompetition(store);
@@ -51,6 +60,19 @@ assert.equal(JSON.stringify(data), original);
 assert.equal(memory.has('uobtkd_competition_backup_v1'), false);
 const setup = component.data();
 assert.equal(setup.blue.name, 'Alex');
+assert.equal(setup.blue.club, 'Bristol');
+assert.equal(setup.matchName, 'Championship final');
+assert.equal(setup.bodyLevel, 25);
+assert.equal(setup.helmetLevel, 4);
+assert.throws(
+  () =>
+    restarted.enterCompetition(store, blue, red, {
+      matchName: 'Invalid',
+      bodyLevel: 72,
+      helmetLevel: 1
+    }),
+  /thresholds/
+);
 assert.equal(setup.blue.bodyId, '000000000001');
 restarted.rewriteEquipment('000000000001', '000000000003', 'body');
 assert.equal(component.data().blue.bodyId, '000000000003');

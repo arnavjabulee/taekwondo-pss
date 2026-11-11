@@ -7,8 +7,11 @@
     BACKUP_KEY = 'uobtkd_competition_backup_v1',
     SETUP_KEY = 'uobtkd_competition_setup_v1';
   var selection = {
-    blue: { name: 'Blue', bodyId: '', helmetId: '' },
-    red: { name: 'Red', bodyId: '', helmetId: '' }
+    matchName: '',
+    bodyLevel: null,
+    helmetLevel: null,
+    blue: { name: 'Blue', club: '', bodyId: '', helmetId: '' },
+    red: { name: 'Red', club: '', bodyId: '', helmetId: '' }
   };
   function testChecks() {
     return {
@@ -20,6 +23,7 @@
     value = value || {};
     return {
       name: typeof value.name === 'string' ? value.name.slice(0, 80) : fallback,
+      club: typeof value.club === 'string' ? value.club.slice(0, 80) : '',
       bodyId: core.normalizeId(value.bodyId),
       helmetId: core.normalizeId(value.helmetId)
     };
@@ -28,14 +32,26 @@
     try {
       var saved = root.localStorage && JSON.parse(root.localStorage.getItem(SETUP_KEY));
       if (saved)
-        selection = { blue: participant(saved.blue, 'Blue'), red: participant(saved.red, 'Red') };
+        selection = {
+          blue: participant(saved.blue, 'Blue'),
+          red: participant(saved.red, 'Red'),
+          matchName: typeof saved.matchName === 'string' ? saved.matchName.slice(0, 120) : '',
+          bodyLevel: core.parseLevel(saved.bodyLevel),
+          helmetLevel: core.parseLevel(saved.helmetLevel)
+        };
     } catch (error) {
       /* Keep editable defaults. */
     }
     return JSON.parse(JSON.stringify(selection));
   }
-  function saveSetup(blue, red) {
-    selection = { blue: participant(blue, 'Blue'), red: participant(red, 'Red') };
+  function saveSetup(blue, red, options) {
+    selection = {
+      blue: participant(blue, 'Blue'),
+      red: participant(red, 'Red'),
+      matchName: options ? String(options.matchName || '').slice(0, 120) : selection.matchName,
+      bodyLevel: options ? core.parseLevel(options.bodyLevel) : selection.bodyLevel,
+      helmetLevel: options ? core.parseLevel(options.helmetLevel) : selection.helmetLevel
+    };
     if (root.localStorage) root.localStorage.setItem(SETUP_KEY, JSON.stringify(selection));
   }
   function validateDevice(id, type) {
@@ -47,7 +63,7 @@
         throw new Error('Choose the correct protector type.');
     }
   }
-  function enterCompetition(store, blue, red) {
+  function enterCompetition(store, blue, red, options) {
     if (backup) throw new Error('A competition is already open.');
     if (!blue || !red || typeof blue !== 'object' || typeof red !== 'object')
       throw new Error('Enter competitor details.');
@@ -61,6 +77,23 @@
         if (id) used[id] = true;
       });
     });
+    var defaults = (store.ReadGameInfo && store.ReadGameInfo()) || store.GAMEINFO || {};
+    var previousCourt = store.ReadChangdiData(0),
+      match = options || readSetup();
+    if (
+      options &&
+      (core.parseLevel(options.bodyLevel) === null || core.parseLevel(options.helmetLevel) === null)
+    )
+      throw new Error('Enter whole-number thresholds between 0 and 71.');
+    var matchName =
+      String(match.matchName || '')
+        .trim()
+        .slice(0, 120) || 'Competition';
+    var bodyLevel = core.savedLevel(
+      match.bodyLevel,
+      core.savedLevel(previousCourt && previousCourt.lidu, 8)
+    );
+    var helmetLevel = core.savedLevel(match.helmetLevel, core.savedLevel(defaults.toukui_gate, 1));
     var saved = [],
       games = [];
     for (var i = 0; i < core.COURT_COUNT; i++) {
@@ -72,10 +105,14 @@
         right: core.emptyParticipant()
       });
     }
+    games[0].matchName = matchName;
+    games[0].lidu = bodyLevel;
+    games[0].helmetLevel = helmetLevel;
     chosen.forEach(function (person, index) {
       var slot = core.emptyParticipant();
       slot.index = index;
       slot.gamer = person.name;
+      slot.club = person.club;
       slot.huju = person.bodyId;
       slot.toukui = person.helmetId;
       games[0][index === 0 ? 'left' : 'right'] = slot;
@@ -94,7 +131,11 @@
       store.left_gamer_list = [];
       store.right_gamer_list = [];
       store.court_view_mode = 0;
-      saveSetup(chosen[0], chosen[1]);
+      saveSetup(chosen[0], chosen[1], {
+        matchName: matchName,
+        bodyLevel: bodyLevel,
+        helmetLevel: helmetLevel
+      });
     } catch (error) {
       leaveCompetition(store);
       throw error;
@@ -106,8 +147,23 @@
       current = store.ReadChangdiData(0);
     if (current && current.left && current.right)
       saveSetup(
-        { name: current.left.gamer, bodyId: current.left.huju, helmetId: current.left.toukui },
-        { name: current.right.gamer, bodyId: current.right.huju, helmetId: current.right.toukui }
+        {
+          name: current.left.gamer,
+          club: current.left.club,
+          bodyId: current.left.huju,
+          helmetId: current.left.toukui
+        },
+        {
+          name: current.right.gamer,
+          club: current.right.club,
+          bodyId: current.right.huju,
+          helmetId: current.right.toukui
+        },
+        {
+          matchName: current.matchName || '',
+          bodyLevel: current.lidu,
+          helmetLevel: core.savedLevel(current.helmetLevel, 1)
+        }
       );
     for (var i = 0; i < previous.saved.length; i++)
       store.SaveChangdiData(
@@ -149,6 +205,13 @@
       name: 'CompetitionSetup',
       data: function () {
         var setup = readSetup();
+        var info = (store.ReadGameInfo && store.ReadGameInfo()) || store.GAMEINFO || {};
+        var court = store.ReadChangdiData(0);
+        setup.bodyLevel = core.savedLevel(setup.bodyLevel, core.savedLevel(court && court.lidu, 8));
+        setup.helmetLevel = core.savedLevel(
+          setup.helmetLevel,
+          core.savedLevel(info.toukui_gate, 1)
+        );
         setup.online = !!store.IS_ONLINE;
         setup.testing = false;
         setup.testEnabled = true;
@@ -160,12 +223,12 @@
           this.$router.push({ name: 'Index' });
         },
         save: function () {
-          saveSetup(this.blue, this.red);
+          saveSetup(this.blue, this.red, this);
           if (root.PSS_SPECTATOR) root.PSS_SPECTATOR.publish(this);
         },
         start: function () {
           try {
-            enterCompetition(store, this.blue, this.red);
+            enterCompetition(store, this.blue, this.red, this);
             this.stopTest();
             this.$router.push({ name: 'GameCtrl', query: { mode: 'competition' } });
           } catch (error) {
@@ -296,6 +359,41 @@
         function button(text, action) {
           return h('button', { attrs: { type: 'button' }, on: { click: action } }, [view._v(text)]);
         }
+        function matchField(key, label, number) {
+          return h('label', { staticClass: 'pss-settings-field' }, [
+            h('span', [view._v(label)]),
+            h('input', {
+              attrs: {
+                type: number ? 'number' : 'text',
+                'aria-label': label,
+                min: number ? 0 : null,
+                max: number ? 71 : null,
+                step: number ? 1 : null,
+                maxlength: number ? null : 120
+              },
+              domProps: { value: view[key] },
+              on: number
+                ? {
+                    change: function (event) {
+                      var value = core.parseLevel(event.target.value);
+                      if (value === null) {
+                        event.target.value = view[key];
+                        root.UOBTKD_UI.notify('Enter a whole-number threshold between 0 and 71.');
+                        return;
+                      }
+                      view[key] = value;
+                      view.save();
+                    }
+                  }
+                : {
+                    input: function (event) {
+                      view[key] = event.target.value;
+                      view.save();
+                    }
+                  }
+            })
+          ]);
+        }
         return h('main', { staticClass: 'pss-competition-setup' }, [
           h('header', { staticClass: 'pss-free-header' }, [
             h('h1', [view._v('Competition · Protector test')]),
@@ -304,6 +402,15 @@
               root.PSS_SPECTATOR.open();
             })
           ]),
+          h(
+            'section',
+            { staticClass: 'pss-match-options', attrs: { 'aria-label': 'Match setup' } },
+            [
+              matchField('matchName', 'Match name', false),
+              matchField('bodyLevel', 'Body threshold (0–71)', true),
+              matchField('helmetLevel', 'Helmet threshold (0–71)', true)
+            ]
+          ),
           h('p', [
             view._v(
               'Test the assigned protectors before entering match mode. Received signals appear below; test hits never score and no match clock runs. Names are locked in match mode.'
@@ -349,6 +456,24 @@
                     on: {
                       input: function (event) {
                         person.name = event.target.value;
+                        view.save();
+                      }
+                    }
+                  })
+                ]),
+                h('label', [
+                  view._v('Club (optional) '),
+                  h('input', {
+                    attrs: {
+                      type: 'text',
+                      maxlength: 80,
+                      'aria-label': title + ' club name',
+                      placeholder: 'Club (optional)'
+                    },
+                    domProps: { value: person.club },
+                    on: {
+                      input: function (event) {
+                        person.club = event.target.value;
                         view.save();
                       }
                     }

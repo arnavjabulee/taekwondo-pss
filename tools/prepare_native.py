@@ -119,6 +119,8 @@ def patch_title_and_shortcuts(data):
         payload += b"\0"
     library_offset = len(payload)
     payload += (app_name + '.dll\0').encode('utf-16-le')
+    quit_offset = len(payload)
+    payload += b'HostQuit\0'
     old_title = "\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6 (\u5357\u4eac\u672c\u667a\u4fe1\u606f\u79d1\u6280\u6709\u9650\u516c\u53f8)".encode("utf-16-le")
     old_offset = data.find(old_title)
     header, virtual_size, rva, size, raw = sections[b".rdata"]
@@ -226,6 +228,10 @@ def patch_title_and_shortcuts(data):
     replacement = guard + prefix + bridge
     replacement += b'\xe9' + struct.pack('<i',return_site - (escape_start + len(replacement) + 5))
     data[escape_start:return_site] = replacement.ljust(return_site - escape_start,b'\x90')
+    # Let the focused web view own Space. The original bridge also dispatched
+    # Space to panel JS before the DOM saw it, causing double toggles and stuck
+    # held-key state when native dialogs swallowed the release event.
+    data[space_start - 2] = 0xeb  # JNE +36 -> JMP +36; keep its bridge for Escape.
     # Add real HWND close/focus commands for detached displays. window.close()
     # does not reliably reach this old engine's native window lifecycle.
     # Both callbacks reject child/captioned windows so the panel cannot be closed.
@@ -266,12 +272,32 @@ def patch_title_and_shortcuts(data):
     bind_anchor=bytes.fromhex('688034400068d0304100ff15ccad4100')
     if data.count(bind_anchor)!=1:raise ValueError('Unexpected native JS binding anchor')
     bind_site=data.index(bind_anchor)+10
+    # Quit resolves the calling view's top-level HWND, then shares the proven
+    # asynchronous WM_CLOSE tail. Null HWNDs return without posting a thread message.
+    quit_site = text_raw + text_position + len(focus_code)
+    quit_va = image_base + text_rva + quit_site - text_raw
+    quit_code = bytearray(close_code[:23])
+    quit_code += bytes.fromhex('85f60f84')
+    fail_tail = close_va + close_code.rindex(bytes.fromhex('6a00ff1540ae4100'))
+    quit_code += struct.pack('<i', fail_tail - (quit_va + len(quit_code) + 4))
+    parent_loop = len(quit_code)
+    quit_code += bytes.fromhex('56ff1528f7400085c074')
+    send_jump = len(quit_code); quit_code.append(0)
+    quit_code += bytes.fromhex('8bf0eb')
+    quit_code.append((parent_loop - len(quit_code) - 1) & 255)
+    quit_code[send_jump] = len(quit_code) - send_jump - 1
+    close_tail = close_va + close_code.index(bytes.fromhex('6a006a006a1056ff152cf74000'))
+    quit_code += b'\xe9' + struct.pack('<i', close_tail - (quit_va + len(quit_code) + 5))
+    trampoline_site = escape_start + len(replacement)
+    trampoline_va = image_base + text_rva + trampoline_site - text_raw
     trampoline=bytes.fromhex('ff15ccad4100')
-    for callback,name in [(close_va,close_address),(focus_va,focus_address)]:
+    for callback,name in [(close_va,close_address),(focus_va,focus_address),(quit_va,new_address+quit_offset)]:
         trampoline+=b'\x6a\x00\x68'+struct.pack('<I',callback)+b'\x68'+struct.pack('<I',name)+bytes.fromhex('ff15ccad410083c40c')
-    trampoline_va=focus_va+len(focus_code)
     trampoline+=b'\xe9'+struct.pack('<i',image_base+text_rva+bind_site+6-text_raw-(trampoline_va+len(trampoline)+5))
-    extension=focus_code+trampoline
+    if trampoline_site + len(trampoline) > return_site or any(value != 0x90 for value in data[trampoline_site:trampoline_site+len(trampoline)]):
+        raise ValueError('No verified keyboard padding for JS registrations')
+    data[trampoline_site:trampoline_site+len(trampoline)] = trampoline
+    extension=focus_code+quit_code
     if text_position+len(extension)>text_size or any(data[text_raw+text_position:text_raw+text_position+len(extension)]):
         raise ValueError('No verified executable padding for display commands')
     data[text_raw+text_position:text_raw+text_position+len(extension)]=extension

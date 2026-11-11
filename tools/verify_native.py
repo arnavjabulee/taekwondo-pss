@@ -46,7 +46,7 @@ assert modified[bind_site]==0xe9 and modified[bind_site+5]==0x90
 trampoline_va=image_base+sections[b'.text'][0]+bind_site-text_raw+5+struct.unpack_from('<i',modified,bind_site+1)[0]
 trampoline=text_raw+trampoline_va-image_base-sections[b'.text'][0]
 assert modified[trampoline:trampoline+6]==bytes.fromhex('ff15ccad4100')
-for index,label in enumerate([b'HostCloseDisplay\0',b'HostFocusDisplay\0']):
+for index,label in enumerate([b'HostCloseDisplay\0',b'HostFocusDisplay\0',b'HostQuit\0']):
     registration=trampoline+6+index*21
     assert modified[registration:registration+3]==bytes.fromhex('6a0068')
     callback_va=struct.unpack_from('<I',modified,registration+3)[0]
@@ -54,12 +54,25 @@ for index,label in enumerate([b'HostCloseDisplay\0',b'HostFocusDisplay\0']):
     name_offset=raw+name_va-image_base-rva
     assert modified[name_offset:name_offset+len(label)]==label
     callback=text_raw+callback_va-image_base-sections[b'.text'][0]
-    body=modified[callback:callback+(72 if index==0 else 89)]
+    body=modified[callback:callback+(72 if index==0 else 89 if index==1 else 50)]
+    if index == 2:
+        assert body.startswith(bytes.fromhex('5651ff15a8ae410083c40450ff154cad410083c4048bf0'))
+        assert bytes.fromhex('85f60f84') in body
+        assert bytes.fromhex('56ff1528f7400085c074') in body
+        null_target = callback + 31 + struct.unpack_from('<i', modified, callback + 27)[0]
+        assert modified[null_target:null_target+8] == bytes.fromhex('6a00ff1540ae4100')
+        parent_loop = callback + 31
+        assert modified[parent_loop:parent_loop+10] == bytes.fromhex('56ff1528f7400085c074')
+        send = parent_loop + 11 + modified[parent_loop+10]
+        assert modified[send] == 0xe9
+        post = send + 5 + struct.unpack_from('<i', modified, send+1)[0]
+        assert modified[post:post+13] == bytes.fromhex('6a006a006a1056ff152cf74000')
+        continue
     assert body.startswith(bytes.fromhex('5651ff15a8ae410083c40450ff154cad410083c4048bf0'))
     assert bytes.fromhex('a90000c04075') in body # Reject captioned/child panel windows.
     if index==0:assert bytes.fromhex('85f674') in body # Never post a thread-wide close for HWND_NULL.
     assert bytes.fromhex('ff152cf74000') in body if index==0 else bytes.fromhex('ff155cf04000') in body
-back=trampoline+48
+back=trampoline+69
 assert modified[back]==0xe9
 assert back+5+struct.unpack_from('<i',modified,back+1)[0]==bind_site+6
 for old_title in ["\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6 (\u5357\u4eac\u672c\u667a\u4fe1\u606f\u79d1\u6280\u6709\u9650\u516c\u53f8)", "\u4f53\u80b2\u7ade\u8d5b\u8f6f\u4ef6"]:
@@ -85,7 +98,7 @@ destination = alt_site + 5 + struct.unpack_from("<i", modified, alt_site + 1)[0]
 assert modified[destination : destination + 7] == b"\x81\x7b\x04\x00\x01\x00\x00"
 space_anchor = b"\x83\x7b\x08\x20\x75\x24"
 space_site = original.index(space_anchor)
-assert modified[space_site : space_site + len(space_anchor)] == space_anchor
+assert modified[space_site : space_site + len(space_anchor)] == bytes.fromhex('837b0820eb24')
 space_start=space_site+len(space_anchor)
 assert modified[space_start:space_start+36] == original[space_start:space_start+36]
 escape_anchor=bytes.fromhex('837b081b0f85c2000000')

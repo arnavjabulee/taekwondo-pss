@@ -51,8 +51,8 @@ const host = {
 guard.attach(host, store);
 host.onClientState(false);
 assert.equal(host.online, false);
-assert(stopped > 0);
-assert.equal(cancelled, 4);
+assert.equal(stopped, 0);
+assert.equal(cancelled, 0);
 client.connected = true;
 host.onClientState(true);
 assert.equal(host.online, true);
@@ -100,6 +100,14 @@ console.log(
 );
 const courtView = { ...view, gvi: { game_state: 2, game: [] }, time: 17.25, SendGameData() {} };
 guard.attachController(courtView);
+const stopsBeforeOfflineStart = stopped;
+host.onClientState(false);
+assert.equal(courtView.gvi.game_state, 2);
+assert.equal(stopped, stopsBeforeOfflineStart);
+client.connected = true;
+broken = false;
+host.onClientState(true);
+client.connected = false;
 host.onClientState(false);
 assert.equal(courtView.gvi.game_state, 3);
 assert.equal(courtView.time, 17.25);

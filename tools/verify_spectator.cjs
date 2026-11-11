@@ -38,6 +38,7 @@ global.open = (url, name, features) => {
 try {
   const api = require('../src/runtime/spectator.js');
   const court = {
+    matchName: 'Quarter final',
     left: {
       ...core.emptyParticipant(),
       gamer: 'Blue name',
@@ -63,6 +64,7 @@ try {
   assert.equal(opens, 1);
   const snap = messages.at(-1).data;
   assert.equal(snap.seconds, 82);
+  assert.equal(snap.title, 'Quarter final');
   assert.equal(snap.blue.score, 13);
   assert.equal(snap.blue.gamJeoms, 2);
   assert(!JSON.stringify(snap).includes('private ID'));

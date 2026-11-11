@@ -296,6 +296,11 @@
       controller.gameinfo.toukui_gate,
       function (value) {
         controller.gameinfo.toukui_gate = value;
+        if (root.PSS_MODES && root.PSS_MODES.isCompetition()) {
+          controller.gvi.game[0].helmetLevel = value;
+          store.SaveChangdiData(0, controller.gvi.game[0]);
+          return;
+        }
         store.GAMEINFO.toukui_gate = value;
         store.SaveGameInfo(controller.gameinfo);
       }

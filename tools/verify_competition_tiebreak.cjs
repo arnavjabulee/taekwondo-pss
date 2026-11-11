@@ -50,93 +50,162 @@ function match(options = {}) {
     hit: (id, value) => fixes.scoreHit(c, store, id + ',value:' + value)
   };
 }
-// Tier 1: more technical kicks beats more nontechnical kick points and weak hits.
+
+function decided(x, side, basis) {
+  x.c.timer_callback();
+  assert.equal(x.s().results[0].winner, side);
+  assert.equal(x.s().results[0].method, 'PTF');
+  assert.equal(x.s().results[0].basis, basis);
+  assert.equal(x.s().phase, 'break');
+}
+// Arrange penalty-derived totals for tie-break fixtures; break-only API gating is tested separately.
+function fixturePenalty(c, store, side, delta) {
+  c.gvi.game[0][side].warning += delta;
+  c.gvi.game[0][side === 'left' ? 'right' : 'left'].score += delta;
+}
+// Technical points, not counts: one head technical (3) beats one body technical (2).
 const technical = match();
 fixes.adjustTechnical(technical.c, technical.store, 'left', 'body', 1);
-fixes.adjustScore(technical.c, technical.store, 'right', 3);
-fixes.adjustGamJeom(technical.c, technical.store, 'right', 1);
-for (let i = 0; i < 3; i++) technical.hit('000000000001', 100);
-assert.equal(technical.court.left.score, 3);
-assert.equal(technical.court.right.score, 3);
-technical.c.timer_callback();
-assert.equal(technical.s().results[0].winner, 'left');
-assert.equal(technical.s().results[0].method, 'PTF');
-assert.equal(technical.s().results[0].basis, 'Technical kicks');
-assert.equal(technical.s().phase, 'break');
-// Tier 2: head/body points exclude penalty points and are evaluated after equal technical counts.
-const kickPoints = match();
-kickPoints.hit('000000000012', 40);
-kickPoints.hit('000000000001', 320);
-fixes.adjustGamJeom(kickPoints.c, kickPoints.store, 'left', 1);
-assert.equal(kickPoints.court.left.score, 3);
-assert.equal(kickPoints.court.right.score, 3);
-kickPoints.c.timer_callback();
-assert.equal(kickPoints.s().results[0].winner, 'left');
-assert.equal(kickPoints.s().results[0].basis, 'Head and body points');
-// Tier 3: both head and body weak messages count, against the attacker, with no points.
+fixes.adjustTechnical(technical.c, technical.store, 'right', 'head', 1);
+fixturePenalty(technical.c, technical.store, 'right', 1);
+decided(technical, 'right', 'Technical points');
+// Earliest actual PSS score beats more weak hits and ignores manual/penalty points.
+const firstScore = match();
+fixturePenalty(firstScore.c, firstScore.store, 'left', 1);
+fixturePenalty(firstScore.c, firstScore.store, 'right', 1);
+assert.equal(firstScore.court.left.first_pss_score, 0);
+assert.equal(firstScore.court.right.first_pss_score, 0);
+firstScore.hit('000000000002', 320);
+firstScore.hit('000000000001', 320);
+for (let i = 0; i < 3; i++) firstScore.hit('000000000001', 100);
+assert.equal(firstScore.court.left.first_pss_score, 1);
+assert.equal(firstScore.court.right.first_pss_score, 2);
+decided(firstScore, 'left', 'First scoring technique');
+// No Date.now precision dependency: both messages can arrive in one millisecond.
+const realNow = Date.now;
+const legacyCourt = { left: core.emptyParticipant(), right: core.emptyParticipant() };
+legacyCourt.left.hjhits = 1;
+legacyCourt.right.weak_body = 3;
+assert.equal(
+  engine.tieBreak(legacyCourt),
+  null,
+  'Saved rounds without PSS score order require officials'
+);
+Date.now = () => 1000;
+const sameMillisecond = match();
+sameMillisecond.hit('000000000001', 320);
+sameMillisecond.hit('000000000002', 320);
+Date.now = realNow;
+decided(sameMillisecond, 'right', 'First scoring technique');
+// Only one contestant scores through PSS; penalties equalize the scoreboard.
+const soleScorer = match();
+soleScorer.hit('000000000002', 320);
+fixturePenalty(soleScorer.c, soleScorer.store, 'left', 1);
+fixturePenalty(soleScorer.c, soleScorer.store, 'left', 1);
+decided(soleScorer, 'left', 'First scoring technique');
+// With no PSS scores, more non-scoring registrations beats the earlier hit.
 const weak = match();
-weak.hit('000000000002', 320);
-weak.hit('000000000001', 320);
+weak.hit('000000000001', 100);
 weak.hit('000000000002', 319);
 weak.hit('000000000012', 39);
-weak.hit('000000000001', 100);
 assert.equal(weak.court.left.weak_body, 1);
 assert.equal(weak.court.left.weak_head, 1);
-assert.equal(weak.court.left.valid, 2);
-assert.equal(weak.court.right.valid, 1);
-assert.equal(weak.court.left.last_weak.type, 'head');
-assert.equal(weak.court.left.last_weak.level, 0.975);
-assert.equal(weak.court.left.last_weak.threshold, 1);
-assert.equal(weak.court.left.score, 2);
-assert.equal(weak.court.right.score, 2);
-weak.c.timer_callback();
-assert.equal(weak.s().results[0].winner, 'left');
-assert.equal(weak.s().results[0].basis, 'Below-threshold registrations');
-const before = weak.court.right.valid;
-weak.hit('000000000001', 200);
-assert.equal(weak.court.right.valid, before); // Break hits cannot change tie-break counters.
-// Tier 1 counts kicks, rather than adding their point weights.
-const equalTechnical = match();
-fixes.adjustTechnical(equalTechnical.c, equalTechnical.store, 'left', 'body', 1);
-fixes.adjustTechnical(equalTechnical.c, equalTechnical.store, 'right', 'head', 1);
-fixes.adjustScore(equalTechnical.c, equalTechnical.store, 'left', 1);
-equalTechnical.c.timer_callback();
-assert.equal(equalTechnical.s().results[0].winner, 'right');
-assert.equal(equalTechnical.s().results[0].basis, 'Head and body points');
-// All equal: no guessed winner, including a final-round tie. Break ends but no match can resume until SUP.
+decided(weak, 'left', 'Below-threshold registrations');
+// Equal non-scoring counts: first registered PSS hit wins.
+const firstHit = match();
+firstHit.hit('000000000001', 100);
+firstHit.hit('000000000012', 39);
+firstHit.hit('000000000002', 100);
+firstHit.hit('000000000011', 39);
+decided(firstHit, 'right', 'First PSS hit');
+// Manually awarded techniques participate in the same scoring order.
+const manual = match();
+fixes.adjustScore(manual.c, manual.store, 'left', 3);
+for (let i = 0; i < 3; i++) fixes.adjustScore(manual.c, manual.store, 'right', 1);
+decided(manual, 'left', 'First scoring technique');
+assert.equal(manual.court.right.punches, 3);
+const mixed = match();
+fixes.adjustScore(mixed.c, mixed.store, 'left', 2);
+mixed.hit('000000000001', 320);
+decided(mixed, 'left', 'First scoring technique');
+const sensorFirst = match();
+sensorFirst.hit('000000000001', 320);
+fixes.adjustScore(sensorFirst.c, sensorFirst.store, 'left', 2);
+decided(sensorFirst, 'right', 'First scoring technique');
+const manualTechnical = match();
+fixes.adjustTechnical(manualTechnical.c, manualTechnical.store, 'left', 'body', 1);
+fixes.adjustTechnical(manualTechnical.c, manualTechnical.store, 'right', 'body', 1);
+decided(manualTechnical, 'left', 'First scoring technique');
+// Fully tied, including no PSS hits: break starts while the officials decide SUP.
 const sup = match({ game_rounds: 1 });
 sup.c.timer_callback();
 assert.equal(sup.s().pendingDecision, true);
 assert.equal(sup.s().phase, 'break');
-assert.equal(sup.s().breakRemaining, 5);
-assert.equal(sup.s().results.length, 0);
 for (let i = 0; i < 5; i++) sup.c.timer_callback();
-assert.equal(sup.s().phase, 'decision');
-sup.c.gameControl();
 assert.equal(sup.s().phase, 'decision');
 sup.s().decisionSide = 'right';
 sup.s().decisionMethod = 'SUP';
 engine.record(sup.c, sup.store);
 assert.equal(sup.s().winner, 'right');
 assert.equal(sup.s().results[0].method, 'SUP');
-// Technical undo, invalid undo, reset and saved-stat restoration.
-const undo = match();
-assert.equal(fixes.adjustTechnical(undo.c, undo.store, 'left', 'head', -1), false);
-fixes.adjustTechnical(undo.c, undo.store, 'left', 'head', 1);
-assert.equal(undo.court.left.score, 3);
-assert.equal(undo.court.left.technical_head, 1);
-assert.equal(undo.court.left.head_points, 3);
-assert.equal(undo.court.left.tkhits, 0);
-fixes.adjustTechnical(undo.c, undo.store, 'left', 'head', -1);
-assert.equal(undo.court.left.score, 0);
-assert.equal(undo.court.left.technical_head, 0);
-assert.equal(undo.court.left.head_points, 0);
+// Saved rounds and undo preserve event order; next rounds reset it.
+assert.equal(engine.undo(firstScore.c, firstScore.store), true);
+assert.equal(firstScore.court.left.first_pss_score, 1);
+assert.equal(firstScore.court.right.first_pss_score, 2);
+assert.equal(firstScore.store.ReadChangdiData(0).left.first_pss_hit, 1);
 for (let i = 0; i < 5; i++) technical.c.timer_callback();
 for (const key of core.PARTICIPANT_COUNTERS) assert.equal(technical.court.left[key], 0, key);
-assert.equal(engine.undo(weak.c, weak.store), true);
-assert.equal(weak.court.left.weak_head, 1);
-assert.equal(weak.court.left.weak_body, 1);
-assert.equal(weak.court.left.last_weak, null);
+firstHit.c.gameControl();
+engine.reset(firstHit.c, firstHit.store);
+assert.equal(firstHit.court.right.first_pss_hit, 0);
 console.log(
-  'Competition tie-break checks passed: technical kick count, kick points, weak head/body registrations, SUP with automatic final-round break, attacker attribution, typed undo and round resets.'
+  'Tie-break checks passed: technical points, first PSS score, non-scoring count, first hit, manual SUP, event order persistence and round resets.'
+);
+
+// Passive penalties are a separate two-point award in the final ten seconds.
+const passive = match({ game_time: 120 });
+passive.s().remaining = 10.001;
+engine.record(passive.c, passive.store);
+assert.equal(fixes.adjustGamJeom(passive.c, passive.store, 'left', 1, true), false);
+passive.s().remaining = 10;
+passive.c.gameStop();
+assert.equal(fixes.adjustGamJeom(passive.c, passive.store, 'left', 1, true), true);
+assert.equal(passive.court.left.warning, 1);
+assert.equal(passive.court.left.passive_warnings, 1);
+assert.equal(passive.court.right.score, 2);
+assert.equal(passive.court.right.first_score, 0);
+assert.equal(fixes.adjustGamJeom(passive.c, passive.store, 'left', -1), false);
+fixes.adjustGamJeom(passive.c, passive.store, 'left', 1);
+assert.equal(passive.court.right.score, 3);
+assert.equal(passive.court.left.warning, 2);
+fixes.adjustGamJeom(passive.c, passive.store, 'left', -1, true);
+assert.equal(passive.court.right.score, 1);
+assert.equal(passive.court.left.warning, 1);
+assert.equal(passive.court.left.passive_warnings, 0);
+assert.equal(fixes.adjustGamJeom(passive.c, passive.store, 'left', -1, true), false);
+fixes.adjustGamJeom(passive.c, passive.store, 'left', -1);
+assert.equal(passive.court.right.score, 0);
+const passiveLimit = match({ game_time: 10, competition_max_gam_jeom: 1 });
+engine.record(passiveLimit.c, passiveLimit.store);
+passiveLimit.c.gameControl();
+fixes.adjustGamJeom(passiveLimit.c, passiveLimit.store, 'left', 1, true);
+assert.equal(passiveLimit.s().results[0].method, 'PUN');
+assert.equal(passiveLimit.s().results[0].snapshot.left.warning, 1);
+assert.equal(passiveLimit.s().results[0].snapshot.left.passive_warnings, 1);
+assert.equal(fixes.canUndoPassive(passiveLimit.c, 'left'), true);
+fixes.adjustGamJeom(passiveLimit.c, passiveLimit.store, 'left', -1, true);
+assert.equal(passiveLimit.court.left.passive_warnings, 0);
+assert.equal(passiveLimit.s().results.length, 0);
+assert.equal(passiveLimit.s().phase, 'break-paused');
+const passiveCorrection = match();
+fixes.adjustScore(passiveCorrection.c, passiveCorrection.store, 'left', 1);
+passiveCorrection.c.timer_callback();
+fixes.adjustGamJeom(passiveCorrection.c, passiveCorrection.store, 'left', 1, true);
+assert.equal(passiveCorrection.s().results[0].winner, 'right');
+assert.equal(passiveCorrection.s().results[0].red, 2);
+fixes.adjustGamJeom(passiveCorrection.c, passiveCorrection.store, 'left', -1, true);
+assert.equal(passiveCorrection.s().results[0].winner, 'left');
+assert.equal(passiveCorrection.court.left.warning, 0);
+console.log(
+  'Passive gam-jeom checks passed: ten-second boundary, two-point awards, one-penalty count, separate undo, penalty limit and post-round correction.'
 );
