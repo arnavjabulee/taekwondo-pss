@@ -58,7 +58,7 @@ def patch_sensor_messages(text):
     return replace_once(
         text,
         'routes:[{path:"/",name:"Index"',
-        'routes:[{path:"/settings",name:"AppSettings",component:window.PSS_SETTINGS.createComponent(a(8462).Z)},{path:"/competition",name:"CompetitionSetup",component:window.PSS_MODES.createComponent(a(8462).Z)},{path:"/free-training",name:"FreeTraining",component:window.PSS_FREE_TRAINING.createComponent(a(8462).Z)},{path:"/",name:"Index"',
+        'routes:[{path:"/competition/referees",name:"CompetitionJudges",component:window.PSS_JUDGES.createSetupComponent(a(8462).Z)},{path:"/settings",name:"AppSettings",component:window.PSS_SETTINGS.createComponent(a(8462).Z)},{path:"/competition",name:"CompetitionSetup",component:window.PSS_MODES.createComponent(a(8462).Z)},{path:"/free-training",name:"FreeTraining",component:window.PSS_FREE_TRAINING.createComponent(a(8462).Z)},{path:"/",name:"Index"',
         "Free training route",
     )
 
@@ -149,7 +149,7 @@ def patch_controller(text):
     )
     text = text.replace(
         "beforeDestroy:function(){this.$parent.stopGame()",
-        "beforeDestroy:function(){window.PSS_CONNECTION.detachController(this);window.PSS_SPECTATOR.detach(this);window.UOBTKD_SENSOR_MONITOR.detach();this.$parent.stopGame()",
+        "beforeDestroy:function(){window.PSS_CONNECTION.detachController(this);window.PSS_SPECTATOR.detach(this);if(window.PSS_JUDGES)window.PSS_JUDGES.detach(this);window.UOBTKD_SENSOR_MONITOR.detach();this.$parent.stopGame()",
     )
     old_name_input = (
         'e("input",{directives:[{name:"model",rawName:"v-model.lazy",'
@@ -177,6 +177,7 @@ def patch_controller(text):
     text = text.replace('window.UOBTKD_SENSOR_MONITOR.detach();this.$parent.stopGame()', 'window.UOBTKD_SENSOR_MONITOR.detach();window.PSS_MODES.leaveCompetition(s.Z);this.$parent.stopGame()')
     text = text.replace('staticClass:"uobtkd-training",staticStyle:', 'staticClass:"uobtkd-training",class:{"pss-competition":window.PSS_MODES.isCompetition(),"pss-court-training":!window.PSS_MODES.isCompetition()},staticStyle:',1)
     text = text.replace('t._v("Athletes")','t._v(window.PSS_MODES.isCompetition()?"Protector test":"Equipment")')
+    text = replace_once(text, '[t._v(window.PSS_MODES.isCompetition()?"Protector test":"Equipment")]),', '[t._v(window.PSS_MODES.isCompetition()?"Protector test":"Equipment")]),window.PSS_JUDGES.renderMatchButton(t,e),window.PSS_JUDGES.renderReplayButton(t,e),', "Corner referee management button")
     # Keep competition's settings, but give continuous training only its relevant fields.
     begin = text.index('e("div",{staticClass:"modal-body"', text.index('attrs:{id:"myModal"'))
     depth, quote, escaped, end = 1, None, False, begin + 2
@@ -340,6 +341,8 @@ def build_assets():
         "modes.js",
         "settings.js",
         "competition.js",
+        "qrcode.js",
+        "mobile-judges.js",
         "court-training.js",
         "spectator.js",
         "keybindings.js",
@@ -368,6 +371,7 @@ def build_assets():
         ("modes.js", "modes.js"),
         ("settings.js", "settings.js"),
         ("competition.js", "competition.js"),
+        ("mobile-judges.js", "mobile-judges.js"),
         ("court-training.js", "court-training.js"),
         ("spectator.js", "spectator.js"),
         ("keybindings.js", "keybindings.js"),
@@ -378,6 +382,7 @@ def build_assets():
         ("free-training.js", "free-training.js"),
     ]:
         assets[target] = (RUNTIME / source).read_text(encoding="utf-8")
+    assets["qrcode.js"] = (ROOT / "node_modules/qrcode-generator/dist/qrcode.js").read_text(encoding="utf-8")
     assets["english-controls.css"] = (STYLES / "app.css").read_text(encoding="utf-8")
     for source,target in [('index.html','spectator.html'),('spectator.css','spectator.css'),('spectator-display.js','spectator-display.js')]:
         assets[target]=(ROOT/'src/spectator'/source).read_text(encoding='utf-8')
@@ -497,6 +502,21 @@ def main():
         artwork.convert("RGB").resize((540, 351), Image.Resampling.LANCZOS).save(
             OUTPUT / "res/splash.png", format="PNG", icc_profile=None
         )
+    judge_root = OUTPUT / 'judge-bridge'
+    for folder in ['apps/judge', 'apps/replay', 'services/judge-bridge', 'packages/judge-protocol']:
+        shutil.copytree(ROOT / folder, judge_root / folder, dirs_exist_ok=True)
+    shutil.copytree(ROOT / 'node_modules/ws', judge_root / 'node_modules/ws', dirs_exist_ok=True)
+    shutil.copy2(ROOT / 'node_modules/qrcode-generator/dist/qrcode.js', judge_root / 'apps/replay/qrcode.js')
+    camera_apk = ROOT / 'apps/camera-android/app/build/outputs/apk/debug/app-debug.apk'
+    if camera_apk.exists():
+        shutil.copy2(camera_apk, judge_root / 'apps/replay/camera.apk')
+    shutil.copy2(ROOT / 'tools/start_judge_bridge.ps1', judge_root / 'Start-Bridge.ps1')
+    shutil.copy2(ROOT / 'tools/allow_mobile_judges.ps1', judge_root / 'Allow-Mobile-Judges.ps1')
+    (OUTPUT / 'Allow Mobile Judges.cmd').unlink(missing_ok=True)
+    node_source = Path(subprocess.check_output(['node', '-p', 'process.execPath'], text=True).strip())
+    node_target = judge_root / 'node.exe'
+    if not node_target.exists() or not filecmp.cmp(node_source, node_target):
+        shutil.copy2(node_source, node_target)
     launcher = (
         '@echo off\ncd /d "%~dp0"\n'
         'for %%F in ("%~dp0native-update\\' + APP_NAME + '.exe") do (\n'
@@ -504,6 +524,7 @@ def main():
         "    if errorlevel 1 (\n"
         "        echo Close the running app, then open this launcher again.\n"
         "        pause\n        exit /b 1\n    )\n"
+        '    powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0judge-bridge\\Start-Bridge.ps1"\n'
         '    start "" "%~dp0%%~nxF"\n'
         "    exit /b\n)\n"
         "echo Application executable not found. Run the build script first.\npause\n"

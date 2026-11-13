@@ -15,7 +15,13 @@ __pycache__/
 .DS_Store
 Thumbs.db
 node_modules/
+apps/camera-android/.gradle/
+apps/camera-android/**/build/
+apps/camera-android/build/
+apps/camera-android/local.properties
+apps/replay/*.apk
 test-results/
+/recordings/
 
 # Previous local distributions and migration helper.
 /*Sport*/

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>UoBTKD Video Replay</title>
+    <link rel="stylesheet" href="/replay.css" />
+    <script src="/qr.js" defer></script>
+    <script src="/replay.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <h1>UoBTKD · Video replay</h1>
+      <span id="status" role="status">Connecting…</span>
+    </header>
+    <main>
+      <section class="setup">
+        <details open>
+          <summary>Camera connection</summary>
+          <div class="pair">
+            <div id="qr" role="img" aria-label="Scan to set up the replay camera"></div>
+            <div>
+              <h2>Connect an Android camera</h2>
+              <p>
+                Scan to install/open UoBTKD Replay Camera. Keep the camera app open while recording.
+              </p>
+              <label
+                >Phone network address
+                <select id="address"></select
+              ></label>
+              <p>Camera code <strong id="code"></strong></p>
+              <button id="rotate">Refresh code</button>
+              <p id="camera">No camera paired</p>
+              <button id="approve" hidden>Approve camera</button
+              ><button id="remove" hidden>Disconnect camera</button>
+            </div>
+          </div>
+        </details>
+      </section>
+      <p id="recording-path"></p>
+      <section class="player">
+        <video id="video" playsinline muted></video>
+        <p id="empty">
+          Pair and approve a camera, then press Start recording on the phone. The last two minutes
+          are buffered in memory.
+        </p>
+        <div class="toolbar">
+          <button id="live">Live</button><button data-replay="5">Replay last 5 s</button
+          ><button data-replay="15">Replay last 15 s</button
+          ><button data-replay="30">Replay last 30 s</button><button id="play">Play / pause</button
+          ><label
+            >Speed
+            <select id="speed" aria-label="Playback speed">
+              <option value="0.1">0.1×</option>
+              <option value="0.25">0.25×</option>
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+            </select></label
+          ><button id="back">← Frame</button><button id="forward">Frame →</button
+          ><button id="save">Save buffered clip</button>
+        </div>
+        <label class="timeline"
+          >Replay timeline
+          <input id="timeline" type="range" min="0" max="1" step="0.001" value="0" /></label
+        ><output id="position">No video yet</output>
+      </section>
+    </main>
+  </body>
+</html>

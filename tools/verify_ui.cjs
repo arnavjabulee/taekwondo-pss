@@ -408,6 +408,7 @@ async function verifyEquipment(page, artifacts) {
 async function verifyCompetition(page, artifacts) {
   const autoPopup = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Competition', exact: true }).click();
+  await page.getByRole('button', { name: 'Continue to protector test', exact: true }).click();
   let tv = await autoPopup;
   const tvSockets = [];
   tv.on('websocket', (socket) => tvSockets.push(socket.url()));
@@ -1132,6 +1133,8 @@ async function verifyCompetition(page, artifacts) {
     c.gvi.game[0].competition.winner = 'right';
     c.gameControl();
   });
+  await page.locator('.pss-referee-setup').waitFor();
+  await page.getByRole('button', { name: 'Continue to protector test', exact: true }).click();
   await page.locator('.pss-competition-setup').waitFor();
   assert.equal(await page.getByLabel('Blue club name', { exact: true }).inputValue(), 'Bristol');
   await tv.locator('.scoreboard.testing').waitFor();
@@ -1632,6 +1635,7 @@ async function main() {
     await page.getByRole('button', { name: 'Competition', exact: true }).waitFor();
     const escapeWindow = page.waitForEvent('popup');
     await page.getByRole('button', { name: 'Competition', exact: true }).click();
+    await page.getByRole('button', { name: 'Continue to protector test', exact: true }).click();
     const escapeTV = await escapeWindow;
     await page.getByRole('button', { name: 'Enter match mode', exact: true }).click();
     await page.locator('.pss-competition .uobtkd-courts:visible').waitFor();
@@ -1811,6 +1815,8 @@ async function main() {
     await page.locator('#myModal').waitFor({ state: 'hidden' });
     await page.evaluate(() => window.OnVkEscape());
     await page.locator('.pss-competition-setup').waitFor();
+    await page.evaluate(() => window.OnVkEscape());
+    await page.locator('.pss-referee-setup').waitFor();
     await page.evaluate(() => window.OnVkEscape());
     await page.getByRole('navigation', { name: 'Main menu' }).waitFor();
     const spectatorClosed = escapeTV.waitForEvent('close');

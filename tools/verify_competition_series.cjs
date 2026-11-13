@@ -317,7 +317,7 @@ complete.s().winner = 'left';
 let destination;
 complete.c.$router = { push: (value) => (destination = value) };
 complete.c.gameControl();
-assert.equal(destination.name, 'CompetitionSetup');
+assert.equal(destination.name, 'CompetitionJudges');
 
 const corrections = setup({ game_time: 1, rest_time: 30, competition_point_gap: 0 });
 corrections.c.gameControl();

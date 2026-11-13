@@ -212,6 +212,7 @@
     }
     controller.SendGameData();
     if (root.PSS_SPECTATOR) root.PSS_SPECTATOR.publish(controller);
+    if (root.PSS_JUDGES) root.PSS_JUDGES.publish(controller);
   }
   function publish(controller, store) {
     var s = state(controller),
@@ -288,7 +289,7 @@
       s.wins[r.winner]++;
     });
   }
-  function tieBreak(court) {
+  function tieBreak(court, ignoreArrivalOrder) {
     var left = court.left,
       right = court.right;
     var leftTechnical = 2 * (left.technical_body || 0) + 3 * (left.technical_head || 0);
@@ -305,11 +306,12 @@
     var leftFirst = left.first_score || left.first_pss_score || 0;
     var rightFirst = right.first_score || right.first_pss_score || 0;
     if (
-      ((left.tkhits || 0) + (left.hjhits || 0) > 0 && !leftFirst) ||
-      ((right.tkhits || 0) + (right.hjhits || 0) > 0 && !rightFirst)
+      !ignoreArrivalOrder &&
+      (((left.tkhits || 0) + (left.hjhits || 0) > 0 && !leftFirst) ||
+        ((right.tkhits || 0) + (right.hjhits || 0) > 0 && !rightFirst))
     )
       return null;
-    if (leftFirst || rightFirst) {
+    if (!ignoreArrivalOrder && (leftFirst || rightFirst)) {
       if (leftFirst === rightFirst) return null;
       return {
         side: leftFirst && (!rightFirst || leftFirst < rightFirst) ? 'left' : 'right',
@@ -323,7 +325,7 @@
         side: leftWeak > rightWeak ? 'left' : 'right',
         basis: 'Below-threshold registrations'
       };
-    var firstHit = first('first_pss_hit', 'First PSS hit');
+    var firstHit = ignoreArrivalOrder ? null : first('first_pss_hit', 'First PSS hit');
     if (firstHit) return firstHit;
     return null;
   }
@@ -331,7 +333,7 @@
     var decision =
       court.left.score !== court.right.score
         ? { side: court.left.score > court.right.score ? 'left' : 'right' }
-        : tieBreak(court);
+        : tieBreak(court, true);
     return {
       left: !decision || decision.side === 'left',
       right: !decision || decision.side === 'right'
@@ -676,7 +678,7 @@
     if (!s || s.ivrPending) return;
     if (s.phase === 'finished') {
       host.stopGame();
-      if (controller.$router) controller.$router.push({ name: 'CompetitionSetup' });
+      if (controller.$router) controller.$router.push({ name: 'CompetitionJudges' });
       return;
     }
     if (s.winner || s.phase === 'decision') return;
@@ -992,6 +994,7 @@
       reset(controller, store);
     };
     if (root.PSS_SPECTATOR) root.PSS_SPECTATOR.attach(controller);
+    if (root.PSS_JUDGES) root.PSS_JUDGES.attach(controller, store);
     publish(controller, store);
   }
   function render(view, h, controller) {
@@ -1060,6 +1063,13 @@
                     'Successful IVR',
                     function () {
                       controller.resolveIVR(true);
+                    },
+                    false
+                  ),
+                  button(
+                    'Open video replay',
+                    function () {
+                      root.PSS_JUDGES.openReplay();
                     },
                     false
                   ),

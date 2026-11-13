@@ -230,6 +230,7 @@
           try {
             enterCompetition(store, this.blue, this.red, this);
             this.stopTest();
+            this._startingMatch = true;
             this.$router.push({ name: 'GameCtrl', query: { mode: 'competition' } });
           } catch (error) {
             root.UOBTKD_UI.notify(error.message);
@@ -343,6 +344,14 @@
         if (root.PSS_SPECTATOR) root.PSS_SPECTATOR.attachTesting(this);
       },
       beforeDestroy: function () {
+        if (
+          !this._startingMatch &&
+          !this._returningJudges &&
+          this.$route.name !== 'GameData' &&
+          this.$route.name !== 'CompetitionJudges' &&
+          root.PSS_JUDGES
+        )
+          root.PSS_JUDGES.cancelSetup();
         if (root.PSS_SPECTATOR) root.PSS_SPECTATOR.detach(this);
         this.stopTest();
         var host = this.$parent,
@@ -397,6 +406,13 @@
         return h('main', { staticClass: 'pss-competition-setup' }, [
           h('header', { staticClass: 'pss-free-header' }, [
             h('h1', [view._v('Competition · Protector test')]),
+            button('Video replay', function () {
+              root.PSS_JUDGES.openReplay();
+            }),
+            button('Corner referees', function () {
+              view._returningJudges = true;
+              view.$router.push({ name: 'CompetitionJudges' });
+            }),
             button('Home', view.home),
             button('Open spectator window', function () {
               root.PSS_SPECTATOR.open();
@@ -414,6 +430,11 @@
           h('p', [
             view._v(
               'Test the assigned protectors before entering match mode. Received signals appear below; test hits never score and no match clock runs. Names are locked in match mode.'
+            )
+          ]),
+          h('p', [
+            view._v(
+              'Step 2 of 3 · Referees remain paired while you test protectors. Use Corner referees to change connections.'
             )
           ]),
           h('div', { staticClass: 'pss-protector-test-toolbar' }, [

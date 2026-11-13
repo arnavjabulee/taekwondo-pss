@@ -30,10 +30,16 @@
       if (from.name === 'GameCtrl' && to.name !== 'GameCtrl') host.vkspace_cb = null;
       if (
         from.name === 'GameCtrl' &&
-        to.name === 'GameData' &&
+        (to.name === 'GameData' ||
+          (to.name === 'CompetitionJudges' && to.query.returnToMatch === '1')) &&
         controller &&
         root.PSS_MODES.isCompetition()
       ) {
+        if (to.name === 'CompetitionJudges') {
+          var phase = controller.gvi.game[0].competition.phase;
+          if (phase === 'running' || phase === 'break') controller.gameControl();
+          if (root.PSS_JUDGES) root.PSS_JUDGES.prepareMatchReturn(controller);
+        }
         competitionReturn = JSON.parse(JSON.stringify(controller.gvi.game));
       }
       if (
@@ -80,6 +86,7 @@
     });
     host.$router.afterEach(function (to) {
       if (to.name === 'Index') {
+        if (root.PSS_JUDGES) root.PSS_JUDGES.cancelSetup();
         competitionReturn = null;
         history = [route(to)];
         backPending = false;

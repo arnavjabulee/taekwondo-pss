@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101010" />
+    <title>UoBTKD Judge Controller</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/protocol.js" defer></script>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <strong>UoBTKD</strong><span>Judge controller</span
+      ><span id="connection" role="status">Not paired</span>
+    </header>
+    <main>
+      <section id="pairing">
+        <h1>Join a match</h1>
+        <p>Enter the code shown on the desktop. The operator will approve your judge slot.</p>
+        <form id="pair-form">
+          <label
+            >Your name
+            <input id="judge-name" maxlength="40" autocomplete="name" placeholder="Optional"
+          /></label>
+          <label
+            >Match code
+            <input
+              id="match-code"
+              required
+              inputmode="numeric"
+              pattern="[0-9]{6}"
+              maxlength="6"
+              autocomplete="off"
+              placeholder="000000"
+          /></label>
+          <button type="submit" id="pair-button">Pair with match</button>
+        </form>
+      </section>
+      <section id="controller" hidden>
+        <div class="match-heading">
+          <div>
+            <small id="seat"></small>
+            <h1 id="title"></h1>
+          </div>
+          <button id="leave" type="button">Disconnect</button>
+        </div>
+        <div class="match-status"><strong id="phase"></strong><span id="round"></span></div>
+        <p id="policy"></p>
+        <div class="punches">
+          <button id="blue" class="punch blue" type="button" aria-label="Blue punch" disabled>
+            <span>BLUE</span><strong id="blue-name">Blue</strong><b>PUNCH</b><span>+1</span>
+          </button>
+          <button id="red" class="punch red" type="button" aria-label="Red punch" disabled>
+            <span>RED</span><strong id="red-name">Red</strong><b>PUNCH</b><span>+1</span>
+          </button>
+        </div>
+      </section>
+      <p id="feedback" role="status" aria-live="polite"></p>
+    </main>
+  </body>
+</html>

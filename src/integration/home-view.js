@@ -49,7 +49,7 @@
       h('nav', { staticClass: 'pss-launcher-menu', attrs: { 'aria-label': 'Main menu' } }, [
         h('h2', [text('Start a session')]),
         h('div', { staticClass: 'pss-launcher-modes' }, [
-          launch('Competition', 'CompetitionSetup', true),
+          launch('Competition', 'CompetitionJudges', true),
           launch('Court Training', 'GameCtrl', true),
           launch('Free Training', 'FreeTraining', true)
         ]),

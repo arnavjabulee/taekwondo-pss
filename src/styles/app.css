@@ -1801,3 +1801,94 @@ select:disabled {
 .pss-ivr-dialog button {
   margin: 0 8px 8px 0;
 }
+
+.pss-judge-panel {
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+  margin-bottom: 10px;
+  text-align: left;
+}
+.pss-judge-panel summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.pss-judge-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.pss-judge-toolbar > * {
+  margin-right: 8px;
+  margin-bottom: 6px;
+}
+.pss-judge-panel p {
+  margin: 8px 0;
+  font-size: 12px;
+  color: #bbb;
+}
+.pss-judge-pairing > strong {
+  display: inline-block;
+  font-size: 28px;
+  letter-spacing: 4px;
+  margin: 6px 18px 6px 0;
+}
+.pss-judge-pairing > span {
+  font-size: 12px;
+}
+.pss-judge-pairing input {
+  display: block;
+  width: 330px;
+  max-width: 100%;
+  margin: 5px 0;
+}
+.pss-judge-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 6px 0;
+}
+.pss-judge-row span {
+  margin-right: 12px;
+  min-width: 220px;
+}
+.pss-judge-row button {
+  margin-right: 8px;
+}
+.pss-judge-panel .pss-judge-error {
+  color: #ffb6b6;
+}
+.pss-referee-setup {
+  padding: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.pss-referee-continue {
+  margin-top: 20px;
+  padding: 12px 24px;
+}
+.pss-judge-qr {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin: 16px 0;
+}
+.pss-judge-qr > [role='img'] {
+  width: 240px;
+  height: 240px;
+  flex: 0 0 240px;
+  background: #fff;
+}
+.pss-judge-qr svg {
+  display: block !important;
+  width: 100%;
+  height: 100%;
+}
+.pss-judge-qr label {
+  display: block;
+}
+.pss-judge-qr select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
