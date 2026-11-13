@@ -22,6 +22,7 @@ apps/camera-android/local.properties
 apps/replay/*.apk
 test-results/
 /recordings/
+/dist/
 
 # Previous local distributions and migration helper.
 /*Sport*/

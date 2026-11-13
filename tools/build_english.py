@@ -519,6 +519,8 @@ def main():
         shutil.copy2(node_source, node_target)
     launcher = (
         '@echo off\ncd /d "%~dp0"\n'
+        'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0Prepare-Portable.ps1"\n'
+        'if errorlevel 1 exit /b 1\n'
         'for %%F in ("%~dp0native-update\\' + APP_NAME + '.exe") do (\n'
         '    copy /y "%%~fF" "%~dp0%%~nxF" >nul\n'
         "    if errorlevel 1 (\n"
@@ -529,6 +531,7 @@ def main():
         "    exit /b\n)\n"
         "echo Application executable not found. Run the build script first.\npause\n"
     )
+    shutil.copy2(ROOT / 'tools/prepare_portable.ps1', OUTPUT / 'Prepare-Portable.ps1')
     (OUTPUT / "Start.cmd").write_text(launcher, encoding="ascii")
     old_launcher = OUTPUT / "Start-English.cmd"
     if old_launcher.exists():

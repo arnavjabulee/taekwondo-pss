@@ -2,6 +2,8 @@
 
 Electronic scoring for taekwondo training and competition.
 
+[Download the Windows app](https://github.com/arnavjabulee/taekwondo-pss/releases/latest). Extract the entire ZIP, then open `Start.cmd`.
+
 1. Open `UoBTKD Training Suite/Start.cmd`.
 2. Connect the receiver and configure protectors in **Equipment**.
 3. Choose **Competition**, **Court Training** or **Free Training**.
