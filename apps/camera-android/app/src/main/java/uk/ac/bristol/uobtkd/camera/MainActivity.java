@@ -45,6 +45,7 @@ public class MainActivity extends Activity {
   private FragmentedMp4Muxer muxer;
   private int track = -1;
   private long firstPts = -1;
+  private volatile long firstCapturedAt = 0, serverClockOffset = 0;
 
   @Override
   public void onCreate(Bundle state) {
@@ -53,6 +54,7 @@ public class MainActivity extends Activity {
     LinearLayout layout = new LinearLayout(this);
     layout.setOrientation(LinearLayout.VERTICAL);
     layout.setPadding(16, 8, 16, 8);
+    CompanionLayout.respectSystemBars(layout);
     layout.setBackgroundColor(Color.rgb(16, 16, 16));
     TextView title = new TextView(this);
     title.setText("UoBTKD Replay Camera · 720p / 30 fps · video only");
@@ -61,12 +63,14 @@ public class MainActivity extends Activity {
     layout.addView(title);
     LinearLayout fields = new LinearLayout(this);
     address = field("Desktop address", fields, 2);
+    address.setText(getSharedPreferences("companion", MODE_PRIVATE).getString("server", ""));
     code = field("Camera code", fields, 1);
     code.setInputType(2);
     name = field("Camera name", fields, 1);
     name.setText(Build.MODEL);
     layout.addView(fields);
     LinearLayout buttons = new LinearLayout(this);
+    button("Home", buttons, () -> leaveCamera());
     pair = button("Pair camera", buttons, () -> pair());
     start = button("Start recording", buttons, () -> startRecording());
     stop =
@@ -83,8 +87,21 @@ public class MainActivity extends Activity {
         "Pair using the camera code in the desktop replay window. Keep this app open while"
             + " recording.");
     layout.addView(status);
-    preview = new TextureView(this);
-    layout.addView(preview, new LinearLayout.LayoutParams(-1, 0, 1));
+    FrameLayout previewFrame = new FrameLayout(this);
+    previewFrame.setBackgroundColor(Color.BLACK);
+    preview = new TextureView(this) {
+      @Override
+      protected void onMeasure(int widthSpec, int heightSpec) {
+        int width = MeasureSpec.getSize(widthSpec);
+        int height = MeasureSpec.getSize(heightSpec);
+        // Fit the 1280x720 buffer without stretching or cropping it.
+        if (width * 9L > height * 16L) width = height * 16 / 9;
+        else height = width * 9 / 16;
+        setMeasuredDimension(width, height);
+      }
+    };
+    previewFrame.addView(preview, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+    layout.addView(previewFrame, new LinearLayout.LayoutParams(-1, 0, 1));
     setContentView(layout);
     readIntent(getIntent());
     main.postDelayed(this::poll, 1000);
@@ -103,13 +120,36 @@ public class MainActivity extends Activity {
   private Button button(String text, LinearLayout parent, Runnable action) {
     Button b = new Button(this);
     b.setText(text);
+    b.setAllCaps(false);
+    b.setTextSize(14);
     b.setOnClickListener(v -> action.run());
-    parent.addView(b);
+    parent.addView(b, new LinearLayout.LayoutParams(0, -2, 1));
     return b;
   }
 
   private void message(String value) {
     main.post(() -> status.setText(value));
+  }
+
+  private void leaveCamera() {
+    if (recording || stopping) {
+      new android.app.AlertDialog.Builder(this)
+          .setMessage("Stop recording and return to the companion menu?")
+          .setNegativeButton("Cancel", null)
+          .setPositiveButton("Stop and return", (dialog, which) -> returnHome())
+          .show();
+    } else returnHome();
+  }
+
+  private void returnHome() {
+    if (recording) stopRecording("Recording stopped.");
+    startActivity(new Intent(this, MenuActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+    finish();
+  }
+
+  @Override
+  public void onBackPressed() {
+    leaveCamera();
   }
 
   @Override
@@ -178,6 +218,7 @@ public class MainActivity extends Activity {
       return;
     }
     base = server;
+    getSharedPreferences("companion", MODE_PRIVATE).edit().putString("server", server).apply();
     String pin = code.getText().toString().trim(), label = name.getText().toString();
     pair.setEnabled(false);
     message("Pairing…");
@@ -246,8 +287,12 @@ public class MainActivity extends Activity {
     requests.execute(
         () -> {
           try {
-            generation =
-                api("/api/camera/start", new byte[0], "application/json").getString("generation");
+            long sentAt = System.currentTimeMillis();
+            JSONObject started = api("/api/camera/start", new byte[0], "application/json");
+            generation = started.getString("generation");
+            serverClockOffset = started.optLong("serverTime", System.currentTimeMillis())
+                - (sentAt + System.currentTimeMillis()) / 2;
+            firstCapturedAt = 0;
             recording = true;
             encoderDone = false;
             uploads.clear();
@@ -405,7 +450,12 @@ public class MainActivity extends Activity {
           if (info.size > 0
               && (info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
               && track >= 0) {
-            if (firstPts < 0) firstPts = info.presentationTimeUs;
+            if (firstPts < 0) {
+              firstPts = info.presentationTimeUs;
+              long age = (SystemClock.elapsedRealtimeNanos() / 1000 - firstPts) / 1000;
+              firstCapturedAt = System.currentTimeMillis() + serverClockOffset
+                  - (age >= 0 && age < 5000 ? age : 0);
+            }
             b.position(info.offset);
             b.limit(info.offset + info.size);
             muxer.writeSampleData(
@@ -431,7 +481,8 @@ public class MainActivity extends Activity {
       while (recording || !encoderDone || !uploads.isEmpty()) {
         byte[] data = uploads.poll(1, TimeUnit.SECONDS);
         if (data == null) continue;
-        api("/api/camera/chunk?generation=" + generation + "&index=" + index, data, "video/mp4");
+        api("/api/camera/chunk?generation=" + generation + "&index=" + index
+            + "&captureStartMs=" + firstCapturedAt, data, "video/mp4");
         index++;
       }
     } catch (Exception e) {

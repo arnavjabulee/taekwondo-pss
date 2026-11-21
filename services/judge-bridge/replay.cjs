@@ -40,6 +40,29 @@ function createReplay(options = {}) {
     error = '',
     recording = false;
   const attempts = new Map();
+  let history = [],
+    pause = null,
+    matchPhase = '',
+    pauseSequence = 0,
+    captureStart = 0;
+  async function segmentData(item) {
+    if (!item) return null;
+    const cached = chunks.find((chunk) => chunk.index === item.index);
+    if (cached) return cached.data;
+    const file = await fs.open(recordingPath, 'r');
+    try {
+      const data = Buffer.alloc(item.length);
+      let at = 0;
+      while (at < data.length) {
+        const result = await file.read(data, at, data.length - at, item.position + at);
+        if (!result.bytesRead) throw new Error('Recording fragment is incomplete');
+        at += result.bytesRead;
+      }
+      return data;
+    } finally {
+      await file.close();
+    }
+  }
   function rotate() {
     let next;
     do {
@@ -56,6 +79,9 @@ function createReplay(options = {}) {
       recording,
       recordingPath,
       archiveBytes,
+      pause,
+      archiveStart: history.length ? history[0].start : 0,
+      archiveEnd: history.length ? history[history.length - 1].end : 0,
       camera: camera
         ? { name: camera.name, approved: camera.approved, connected: now() - lastSeen < 5000 }
         : null,
@@ -79,6 +105,9 @@ function createReplay(options = {}) {
     recording = false;
     recordingPath = '';
     archiveBytes = 0;
+    history = [];
+    pause = null;
+    captureStart = 0;
   }
   async function read(req, limit) {
     let size = 0,
@@ -166,7 +195,7 @@ function createReplay(options = {}) {
         );
         archive = await fs.open(recordingPath, 'wx');
         recording = true;
-        json(res, 200, { generation });
+        json(res, 200, { generation, serverTime: now() });
         return true;
       }
       if (url.pathname === '/api/camera/stop' && req.method === 'POST') {
@@ -188,6 +217,9 @@ function createReplay(options = {}) {
           return true;
         }
         const uploadGeneration = generation;
+        const captureTime = Number(url.searchParams.get('captureStartMs'));
+        if (!captureStart && Number.isFinite(captureTime) && Math.abs(now() - captureTime) < 30000)
+          captureStart = captureTime;
         let data = await read(req, 8 * 1024 * 1024);
         if (
           !camera ||
@@ -223,12 +255,52 @@ function createReplay(options = {}) {
             bytes -= chunks.shift().data.length;
           }
         }
+        const position = archiveBytes;
         await writeArchive(data);
+        if (index > 0) {
+          const item = chunks.find((chunk) => chunk.index === index);
+          history.push({
+            index,
+            start: item.start,
+            end: item.end,
+            decode: item.decode,
+            frameTimes: item.frameTimes,
+            position,
+            length: data.length
+          });
+        }
         json(res, 200, { accepted: index });
         return true;
       }
       if (!desktop) {
         json(res, 404, { error: 'Not found' });
+        return true;
+      }
+      if (url.pathname === '/api/desktop/replay/match' && req.method === 'POST') {
+        const input = JSON.parse((await read(req, 4096)).toString());
+        if (typeof input.phase !== 'string') throw new Error('Invalid match phase');
+        if (matchPhase === 'running' && input.phase !== 'running' && history.length) {
+          const at =
+            Number.isFinite(input.at) && Math.abs(input.at - now()) < 30000 ? input.at : now();
+          const end = captureStart
+            ? Math.max(0, (at - captureStart) / 1000)
+            : history[history.length - 1].end;
+          pause = {
+            id: ++pauseSequence,
+            generation,
+            from: Math.max(history[0].start, end - 10),
+            to: end
+          };
+        }
+        matchPhase = input.phase;
+        json(res, 200, { pause });
+        return true;
+      }
+      if (url.pathname === '/api/desktop/replay/archive') {
+        json(res, 200, {
+          generation,
+          segments: history.map(({ index, start, end }) => ({ index, start, end }))
+        });
         return true;
       }
       if (url.pathname === '/api/desktop/replay/state') {
@@ -259,7 +331,8 @@ function createReplay(options = {}) {
           return true;
         }
         const key = url.searchParams.get('index');
-        const data = key === 'init' ? init : chunks.find((x) => x.index === Number(key))?.data;
+        const data =
+          key === 'init' ? init : await segmentData(history.find((x) => x.index === Number(key)));
         if (!data) {
           json(res, 410, { error: 'This fragment is no longer buffered.' });
           return true;
@@ -281,11 +354,13 @@ function createReplay(options = {}) {
           to = Number(url.searchParams.get('to'));
         if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > 120)
           throw new Error('Choose a clip between 0 and 120 seconds');
-        const selected = chunks.filter((x) => x.end > from && x.start < to);
+        const selected = history.filter((x) => x.end > from && x.start < to);
         if (!init || !selected.length) throw new Error('No video in that interval');
         const data = Buffer.concat([
           init,
-          ...selected.map((x) => mp4.rebase(x.data, selected[0].decode))
+          ...(await Promise.all(
+            selected.map(async (x) => mp4.rebase(await segmentData(x), selected[0].decode))
+          ))
         ]);
         res.writeHead(200, {
           'Content-Type': 'video/mp4',

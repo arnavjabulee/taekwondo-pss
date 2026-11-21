@@ -670,6 +670,10 @@
     }
   }
   function openReplay() {
+    if (root.PSS_DESKTOP && root.PSS_DESKTOP.openReplay) {
+      root.PSS_DESKTOP.openReplay();
+      return;
+    }
     request('/api/desktop/bootstrap', null, function (error, result) {
       if (error) {
         root.UOBTKD_UI.notify(error.message);

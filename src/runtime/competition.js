@@ -213,6 +213,8 @@
     controller.SendGameData();
     if (root.PSS_SPECTATOR) root.PSS_SPECTATOR.publish(controller);
     if (root.PSS_JUDGES) root.PSS_JUDGES.publish(controller);
+    if (root.PSS_DESKTOP && root.PSS_DESKTOP.matchState)
+      root.PSS_DESKTOP.matchState(s.ivrPending ? 'paused' : s.phase);
   }
   function publish(controller, store) {
     var s = state(controller),
@@ -333,7 +335,7 @@
     var decision =
       court.left.score !== court.right.score
         ? { side: court.left.score > court.right.score ? 'left' : 'right' }
-        : tieBreak(court, true);
+        : tieBreak(court);
     return {
       left: !decision || decision.side === 'left',
       right: !decision || decision.side === 'right'

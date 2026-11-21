@@ -81,7 +81,9 @@ async function main() {
       n.value = 0.75;
       n.dispatchEvent(new Event('input'));
     });
-    assert(Math.abs((await page.locator('video').evaluate((v) => v.currentTime)) - 0.75) < 0.01);
+    await page.waitForFunction(
+      () => Math.abs(video.currentTime + offset - selectedFrom - 0.75) < 0.01
+    );
     const before = await page.locator('video').evaluate((v) => v.currentTime);
     const liveState = await (await api('/api/desktop/replay/state')).json();
     const more = mp4.rebase(fragments[0], -Math.round(liveState.end * format.timescale));
@@ -95,6 +97,88 @@ async function main() {
     const downloaded = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Save buffered clip', exact: true }).click();
     await (await downloaded).saveAs(path.resolve('test-results/replay-ui-export.mp4'));
+    for (let extra = 0; extra < 30; extra++) {
+      const current = await (await api('/api/desktop/replay/state')).json();
+      if (current.end > 26) break;
+      const more = mp4.rebase(fragments[0], -Math.round(current.end * format.timescale));
+      await api('/api/camera/chunk?generation=' + generation + '&index=' + index++, more, token);
+    }
+    await api('/api/desktop/replay/match', { phase: 'running' });
+    const pause = await (await api('/api/desktop/replay/match', { phase: 'paused' })).json();
+    await page.waitForFunction(() => scope === 'Pause review' && !updating);
+    assert(Math.abs(Number(await page.locator('#timeline').getAttribute('max')) - 10) < 0.001);
+    assert.equal(await page.evaluate(() => selectedTo), pause.pause.to);
+    for (const [point, button] of [
+      [2, 'Set incident start'],
+      [4, 'Set incident end']
+    ]) {
+      await page.locator('#timeline').evaluate((node, value) => {
+        node.value = value;
+        node.dispatchEvent(new Event('input'));
+      }, point);
+      await page.waitForFunction(
+        (value) => Math.abs(video.currentTime + offset - selectedFrom - value) < 0.02,
+        point
+      );
+      await page.getByRole('button', { name: button, exact: true }).click();
+    }
+    await page.getByRole('button', { name: 'Mark incident', exact: true }).click();
+    await page.waitForFunction(() => scope === 'Incident' && !updating);
+    await page.getByLabel('Playback speed', { exact: true }).focus();
+    await page.keyboard.press('Space');
+    assert.equal(
+      await page.locator('video').evaluate((v) => v.paused),
+      true,
+      'Space pauses even with speed selector focused'
+    );
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => !video.paused);
+
+    await page.waitForFunction(() => !video.paused);
+    await page.evaluate(() => {
+      video.currentTime = selectedTo - offset - 0.05;
+    });
+    await page.waitForFunction(
+      () => !video.paused && video.currentTime + offset < selectedFrom + 0.8
+    );
+    await page.getByRole('button', { name: 'Play / pause', exact: true }).click();
+    await page.waitForTimeout(300);
+    assert.equal(
+      await page.locator('video').evaluate((v) => v.paused),
+      true,
+      'Incident loops can still be paused'
+    );
+
+    assert(Math.abs(Number(await page.locator('#timeline').getAttribute('max')) - 2) < 0.02);
+    await page.locator('#timeline').focus();
+    const frameBefore = await page.evaluate(() => video.currentTime + offset);
+    await page.keyboard.press('ArrowRight');
+    await page.waitForFunction((before) => video.currentTime + offset > before, frameBefore);
+    await page.getByRole('button', { name: 'Play / pause', exact: true }).focus();
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => !video.paused);
+    await page.keyboard.press('Space');
+    assert.equal(
+      await page.locator('video').evaluate((v) => v.paused),
+      true,
+      'Focused play button toggles exactly once per Space'
+    );
+    await page.getByRole('button', { name: 'Full footage', exact: true }).click();
+    await page.waitForFunction(() => scope === 'Full footage' && !updating);
+    assert(Number(await page.locator('#timeline').getAttribute('max')) > 26);
+    await page.locator('#timeline').evaluate((node) => {
+      node.value = 23;
+      node.dispatchEvent(new Event('input'));
+    });
+    await page.waitForFunction(
+      () => Math.abs(video.currentTime + offset - selectedFrom - 23) < 0.03
+    );
+    await page.getByRole('button', { name: /^Pause review/ }).click();
+    await page.waitForFunction(() => scope === 'Pause review' && !updating);
+    assert.equal(await page.evaluate(() => selectedTo), pause.pause.to);
+    console.log(
+      'Pause review, two-point incident marking, full footage and seeking beyond the initial decode window passed.'
+    );
     const width = await page.locator('video').evaluate((v) => v.videoWidth);
     assert.equal(width, 1280);
     assert.deepEqual(errors, []);

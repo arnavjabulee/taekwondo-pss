@@ -176,7 +176,20 @@
         view._v(window.UOBTKD_SENSOR_MONITOR.formatHit(slot))
       ]),
 
-      h('div', { staticClass: 'pss-score' }, [view._v(view._s(slot.score))]),
+      h(
+        'div',
+        {
+          staticClass: 'pss-score',
+          class: {
+            'pss-score-leading': !!(
+              leading &&
+              leading[side] &&
+              !leading[side === 'left' ? 'right' : 'left']
+            )
+          }
+        },
+        [view._v(view._s(slot.score))]
+      ),
 
       h('div', { staticClass: 'pss-hit-counts' }, [
         view._v('Head hits ' + slot.tkhits + ' · Body hits ' + slot.hjhits)

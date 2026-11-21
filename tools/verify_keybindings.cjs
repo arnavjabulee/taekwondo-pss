@@ -112,3 +112,38 @@ assert.throws(() => keys.set('back', 'Alt+F4'));
 console.log(
   'Keybindings passed: persistence, remapping, duplicates, capture/cancel, context checks, typing safety and native held-key protection.'
 );
+// The active route, not a stale child controller, determines shortcut ownership.
+editing = false;
+competition = true;
+calls.length = 0;
+reopened.reset();
+reopened.set('bluePoints2', 'B');
+const routeHost = { $route: { name: 'AppSettings' }, $children: [view] };
+reopened.attach(routeHost);
+press(' ');
+press('b');
+assert.deepEqual(calls, [], 'Settings must not control a stale match');
+routeHost.$route.name = 'GameData';
+press(' ');
+press('b');
+assert.deepEqual(calls, [], 'Equipment must not control a stale match');
+routeHost.$route.name = 'GameCtrl';
+press(' ');
+press('b');
+assert.deepEqual(calls, ['toggle', ['left', 2]]);
+calls.length = 0;
+const free = { session: {}, toggleTracking: () => calls.push('free') };
+routeHost.$route.name = 'FreeTraining';
+routeHost.$children = [free];
+press(' ');
+press('b');
+assert.deepEqual(calls, ['free']);
+calls.length = 0;
+routeHost.$route.name = 'CompetitionSetup';
+routeHost.$children = [{ toggleTest: () => calls.push('test') }];
+press(' ');
+press('b');
+assert.deepEqual(calls, ['test']);
+console.log(
+  'Page ownership passed: settings/equipment cannot control stale games; competition, Free Training and protector testing use their own actions.'
+);

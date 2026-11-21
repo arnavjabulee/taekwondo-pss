@@ -18,7 +18,7 @@
     ) {
       return true;
     }
-    return !!root.document.querySelector('.modal.in, [data-ivr-dialog]');
+    return !!root.document.querySelector('.modal.in, [data-ivr-dialog], .pss-confirm-overlay');
   }
   function conflicts(games) {
     var devices = {},
@@ -192,6 +192,17 @@
   function adjustmentSound(name) {
     if (root.PSS_AUDIO && typeof root.PSS_AUDIO.event === 'function') root.PSS_AUDIO.event(name);
   }
+  function completedRounds(controller) {
+    var state = root.PSS_COMPETITION && root.PSS_COMPETITION.state(controller);
+    return state && state.results ? state.results.length : 0;
+  }
+  function normalPointSound(controller) {
+    var state = root.PSS_COMPETITION && root.PSS_COMPETITION.state(controller);
+    if (state && state.phase !== 'running') adjustmentSound('addpoints');
+    else if (root.PSS_AUDIO && typeof root.PSS_AUDIO.hit === 'function')
+      root.PSS_AUDIO.hit('court', 1);
+    else adjustmentSound('addpoints');
+  }
   function scoringOrder(court, side) {
     var slot = court[side],
       other = court[side === 'left' ? 'right' : 'left'];
@@ -205,18 +216,18 @@
       throw new Error('Choose a score adjustment from 1 to 3 points.');
     if (!canAdjustCompetition(controller)) return false;
     var slot = controller.gvi.game[0][side],
-      previousScore = slot.score;
+      previousScore = slot.score,
+      previousRounds = completedRounds(controller);
     slot.score = Math.max(0, slot.score + delta);
     if (delta > 0 && slot.score > previousScore) scoringOrder(controller.gvi.game[0], side);
-    if (slot.score !== previousScore) {
-      if (delta > 0 && root.PSS_AUDIO && typeof root.PSS_AUDIO.hit === 'function')
-        root.PSS_AUDIO.hit('court', 1);
-      else adjustmentSound(delta > 0 ? 'addpoints' : 'deduct');
-    }
     var category =
       Math.abs(delta) === 2 ? 'body_points' : Math.abs(delta) === 3 ? 'head_points' : 'punches';
     if (category) slot[category] = Math.max(0, (slot[category] || 0) + delta);
     checkCompetition(controller, store);
+    if (slot.score !== previousScore && completedRounds(controller) <= previousRounds) {
+      if (delta > 0) normalPointSound(controller);
+      else adjustmentSound('deduct');
+    }
     store.SaveChangdiData(0, controller.gvi.game[0]);
     controller.SendGameData();
     return true;
@@ -234,7 +245,8 @@
     if (!root.PSS_COMPETITION || !root.PSS_COMPETITION.canManagePenalties(controller)) return false;
     var court = controller.gvi.game[0],
       offender = court[side],
-      opponent = court[side === 'left' ? 'right' : 'left'];
+      opponent = court[side === 'left' ? 'right' : 'left'],
+      previousRounds = completedRounds(controller);
     var passiveCount = offender.passive_warnings || 0;
     var ivrCount = offender.ivr_warnings || 0;
     var ivr = ivrPoints === 1 || ivrPoints === 2;
@@ -250,8 +262,9 @@
     if (passive) offender.passive_warnings = passiveCount + delta;
     if (ivr) offender.ivr_warnings = ivrCount + delta;
     opponent.score = Math.max(0, opponent.score + delta * (ivr ? ivrPoints : passive ? 2 : 1));
-    adjustmentSound(delta > 0 ? 'gamjeom' : 'deduct');
     root.PSS_COMPETITION.check(controller, store, true);
+    if (completedRounds(controller) <= previousRounds)
+      adjustmentSound(delta > 0 ? 'gamjeom' : 'deduct');
     store.SaveChangdiData(0, court);
     controller.SendGameData();
     return true;
@@ -267,14 +280,16 @@
     var slot = controller.gvi.game[0][side],
       key = 'technical_' + type,
       points = type === 'head' ? 3 : 2,
-      previousScore = slot.score;
+      previousScore = slot.score,
+      previousRounds = completedRounds(controller);
     if (delta < 0 && !(slot[key] > 0)) return false;
     slot[key] = (slot[key] || 0) + delta;
     slot.score = Math.max(0, slot.score + delta * points);
     if (delta > 0 && slot.score > previousScore) scoringOrder(controller.gvi.game[0], side);
-    if (slot.score !== previousScore) adjustmentSound(delta > 0 ? 'addpoints' : 'deduct');
     slot[type + '_points'] = Math.max(0, (slot[type + '_points'] || 0) + delta * points);
     checkCompetition(controller, store);
+    if (slot.score !== previousScore && completedRounds(controller) <= previousRounds)
+      adjustmentSound(delta > 0 ? 'addpoints' : 'deduct');
     store.SaveChangdiData(0, controller.gvi.game[0]);
     controller.SendGameData();
     return true;
@@ -291,7 +306,8 @@
     var helmet = equipment.type === 'helmet';
     var threshold = core.rawThreshold(helmet ? controller.gameinfo.toukui_gate : court.lidu);
     var competition = !!(root.PSS_MODES && root.PSS_MODES.isCompetition());
-    var wearer = court[equipment.side];
+    var wearer = court[equipment.side],
+      previousRounds = completedRounds(controller);
     // Arrival order, rather than timestamps, resolves hits received in the same millisecond.
     if (competition && !opponent.first_pss_hit)
       opponent.first_pss_hit = (wearer.first_pss_hit || 0) + 1;
@@ -305,8 +321,6 @@
         var pointsKey = helmet ? 'head_points' : 'body_points';
         opponent[pointsKey] = (opponent[pointsKey] || 0) + (helmet ? 3 : 2);
       }
-      if (root.PSS_AUDIO) root.PSS_AUDIO.hit('court', equipment.court + 1);
-      else store.PlaySound(helmet ? 'score_3.wav' : 'score_2.wav');
     } else if (competition) {
       var weakKey = helmet ? 'weak_head' : 'weak_body';
       opponent[weakKey] = (opponent[weakKey] || 0) + 1;
@@ -334,6 +348,10 @@
       opponent.valid++;
     }
     checkCompetition(controller, store);
+    if (hit.value >= threshold && completedRounds(controller) <= previousRounds) {
+      if (root.PSS_AUDIO) root.PSS_AUDIO.hit('court', equipment.court + 1);
+      else store.PlaySound(helmet ? 'score_3.wav' : 'score_2.wav');
+    }
     controller.SendGameData();
   }
   var api = {

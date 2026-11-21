@@ -322,6 +322,38 @@
         event.origin === origin() &&
         event.data &&
         event.data.channel === channel &&
+        event.data.type === 'uobtkd-spectator-key'
+      ) {
+        var keyFrames = root.document.querySelectorAll('.pss-spectator-frame');
+        for (var k = 0; k < keyFrames.length; k++)
+          if (keyFrames[k].contentWindow === event.source) {
+            if (event.data.eventType === 'keydown' || event.data.eventType === 'keyup')
+              root.document.dispatchEvent(
+                new root.KeyboardEvent(event.data.eventType, event.data.input)
+              );
+            return;
+          }
+        return;
+      }
+      if (
+        event.origin === origin() &&
+        event.data &&
+        event.data.channel === channel &&
+        event.data.type === 'uobtkd-spectator-back'
+      ) {
+        var frames = root.document.querySelectorAll('.pss-spectator-frame');
+        for (var i = 0; i < frames.length; i++)
+          if (frames[i].contentWindow === event.source) {
+            if (root.PSS_DESKTOP) root.PSS_DESKTOP.escape();
+            else if (root.PSS_NAV) root.PSS_NAV.back();
+            return;
+          }
+        return;
+      }
+      if (
+        event.origin === origin() &&
+        event.data &&
+        event.data.channel === channel &&
         event.data.type === 'uobtkd-spectator-closed' &&
         event.source === popup
       ) {

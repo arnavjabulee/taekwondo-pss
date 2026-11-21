@@ -77,7 +77,7 @@ assert(penalty('left', 1));
 assert(penalty('left', -1));
 assert.equal(penalty('left', -1), false);
 assert.deepEqual(soundEvents, [
-  'court:1',
+  'addpoints',
   'deduct',
   'addpoints',
   'deduct',

@@ -426,9 +426,9 @@ button {
   flex: 0 0 30px;
 }
 .leader-light.lit {
-  background: #20f164;
-  border-color: #8bffb1;
-  box-shadow: 0 0 14px #11ab41;
+  background: #00ff00;
+  border-color: #00ff00;
+  box-shadow: 0 0 10px #00aa00;
 }
 #clock.subseconds {
   font-size: 112px;
@@ -644,4 +644,9 @@ button {
 .labels-close .threshold-value {
   transform: none;
   margin-left: 4px;
+}
+.score.score-leading,
+#blue-score.score-leading,
+#red-score.score-leading {
+  color: #00ff00;
 }

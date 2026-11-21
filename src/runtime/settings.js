@@ -11,6 +11,7 @@
         return {
           info: info,
           activeTab: 'Training',
+          receiverAddress: root.PSS_DESKTOP ? root.PSS_DESKTOP.receiverAddress : '',
           sounds: root.PSS_AUDIO.state.enabled,
           volume: Math.round(root.PSS_AUDIO.state.volume * 100),
           message: '',
@@ -154,6 +155,40 @@
               )
             ])
           ];
+        else if (view.activeTab === 'Connection' && root.PSS_DESKTOP)
+          contents = [
+            h('h2', [view._v('Receiver connection')]),
+            h('label', { staticClass: 'pss-settings-field' }, [
+              h('span', [view._v('Receiver address and WebSocket port')]),
+              h('input', {
+                attrs: { type: 'text', 'aria-label': 'Receiver address' },
+                domProps: { value: view.receiverAddress },
+                on: {
+                  input: function (event) {
+                    view.receiverAddress = event.target.value;
+                  }
+                }
+              })
+            ]),
+            button('Save receiver address', function () {
+              var value = view.receiverAddress.trim();
+              if (
+                !/^[a-zA-Z0-9.-]+:[0-9]{1,5}$/.test(value) ||
+                Number(value.split(':')[1]) > 65535 ||
+                Number(value.split(':')[1]) < 1
+              ) {
+                view.message = 'Enter an address and port, for example 192.168.99.1:1884.';
+                return;
+              }
+              root.localStorage.setItem('uobtkd_receiver_address', value);
+              view.message = 'Receiver address saved. Restart this desktop app to connect.';
+            }),
+            h('p', [
+              view._v(
+                'Default: 192.168.99.1:1884. Use the receiver network address, not the phone connection address.'
+              )
+            ])
+          ];
         else if (view.activeTab === 'Sound')
           contents = [
             h('h2', [view._v('Sound')]),
@@ -277,23 +312,25 @@
               staticClass: 'pss-settings-tabs',
               attrs: { role: 'tablist', 'aria-label': 'Settings categories' }
             },
-            ['Training', 'Competition', 'Sound', 'Keyboard', 'Display'].map(function (tab) {
-              return button(
-                tab,
-                function () {
-                  root.PSS_KEYS.cancelCapture(false);
-                  view.captureAction = '';
-                  view.activeTab = tab;
-                  view.message = '';
-                },
-                {
-                  type: 'button',
-                  role: 'tab',
-                  'aria-selected': view.activeTab === tab,
-                  'aria-controls': 'settings-' + tab.toLowerCase()
-                }
-              );
-            })
+            ['Training', 'Competition', 'Sound', 'Keyboard', 'Display']
+              .concat(root.PSS_DESKTOP ? ['Connection'] : [])
+              .map(function (tab) {
+                return button(
+                  tab,
+                  function () {
+                    root.PSS_KEYS.cancelCapture(false);
+                    view.captureAction = '';
+                    view.activeTab = tab;
+                    view.message = '';
+                  },
+                  {
+                    type: 'button',
+                    role: 'tab',
+                    'aria-selected': view.activeTab === tab,
+                    'aria-controls': 'settings-' + tab.toLowerCase()
+                  }
+                );
+              })
           ),
           h(
             'section',

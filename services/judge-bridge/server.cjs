@@ -493,7 +493,9 @@ function createBridge(options = {}) {
           'Cache-Control': 'no-store',
           'X-Content-Type-Options': 'nosniff',
           'Content-Security-Policy':
-            "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'"
+            "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:; connect-src 'self' ws: wss:; frame-ancestors " +
+            (url.pathname === '/replay' ? 'http://127.0.0.1:11818' : "'none'") +
+            "; base-uri 'none'"
         });
         return res.end(fs.readFileSync(path.join(root, filename)));
       }

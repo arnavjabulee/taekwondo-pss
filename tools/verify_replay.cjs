@@ -104,8 +104,18 @@ async function main() {
     state = await desktop('state');
     assert(state.end - state.start <= 120);
     assert.equal(state.codec, 'avc1.42001F');
+    await desktop('match', { phase: 'running' });
+    const paused = await desktop('match', { phase: 'paused' });
+    assert.equal(paused.pause.to, state.end);
+    assert.equal(paused.pause.from, state.end - 10);
+    const archive = await desktop('archive');
+    assert.equal(archive.segments[0].start, 0);
+    assert(archive.segments.length > state.segments.length);
+    await desktop('match', { phase: 'paused' });
+    assert.equal((await desktop('state')).pause.id, paused.pause.id);
+
     assert(state.bytes < 128 * 1024 * 1024);
-    await request('/api/desktop/replay/media?generation=' + gen + '&index=1', undefined, key, 410);
+    await request('/api/desktop/replay/media?generation=' + gen + '&index=1', undefined, key, 200);
     await request('/api/desktop/replay/media?generation=stale&index=init', undefined, key, 409);
     const exported = await request(
       '/api/desktop/replay/clip?generation=' + gen + '&from=110&to=113',
@@ -132,6 +142,44 @@ async function main() {
     await desktop('remove', {});
     await request('/api/camera/state', undefined, token, 401);
     assert.equal((await desktop('state')).segments.length, 0);
+    const fresh = await desktop('state');
+    token = (
+      await (
+        await request('/api/camera/pair', { code: fresh.code, name: 'Timestamp camera' })
+      ).json()
+    ).token;
+    await desktop('approve', {});
+    const timed = await (await request('/api/camera/start', {}, token)).json();
+    assert.equal(timed.serverTime, time);
+    await request(
+      '/api/camera/chunk?generation=' + timed.generation + '&index=0&captureStartMs=' + time,
+      init,
+      token
+    );
+    await request(
+      '/api/camera/chunk?generation=' + timed.generation + '&index=1',
+      fragment(0),
+      token
+    );
+    await desktop('match', { phase: 'running' });
+    const marked = await desktop('match', { phase: 'paused', at: time + 1750 });
+    assert.equal(
+      marked.pause.to,
+      1.75,
+      'Pause uses capture time, not the last uploaded fragment end'
+    );
+    await request(
+      '/api/camera/chunk?generation=' + timed.generation + '&index=2',
+      fragment(1),
+      token
+    );
+    assert.equal(
+      (await desktop('state')).pause.to,
+      1.75,
+      'Late fragments do not move the pause point'
+    );
+    await request('/api/camera/stop?generation=' + timed.generation, {}, token);
+
     console.log(
       'Replay backend passed: camera pairing/approval, fMP4 parsing, upload ordering, bounded ring, zero-based clip export and recording/token isolation.'
     );

@@ -11,14 +11,14 @@ assert.deepEqual(engine.leaders(court), { left: false, right: true });
 court.left.technical_head = 1;
 court.left.first_pss_score = 1;
 court.right.first_pss_score = 2;
-assert.deepEqual(engine.leaders(court), { left: true, right: true });
-assert.equal(engine.tieBreak(court).side, 'left', 'Round decisions still use arrival order');
+assert.deepEqual(engine.leaders(court), { left: true, right: false });
+assert.equal(engine.tieBreak(court).side, 'left', 'Lights and round decisions use arrival order');
 court.left.first_score = 2;
 court.right.first_score = 1;
 assert.deepEqual(
   engine.leaders(court),
-  { left: true, right: true },
-  'Manual first scores do not affect lights'
+  { left: false, right: true },
+  'Manual first scores participate in the same hierarchy as PSS scores'
 );
 court.left.first_score = court.right.first_score = 0;
 court.left.first_pss_score = court.right.first_pss_score = 0;
@@ -27,7 +27,7 @@ assert.deepEqual(engine.leaders(court), { left: false, right: true });
 court.left.weak_body = 1;
 court.left.first_pss_hit = 2;
 court.right.first_pss_hit = 1;
-assert.deepEqual(engine.leaders(court), { left: true, right: true });
+assert.deepEqual(engine.leaders(court), { left: false, right: true });
 court.left.first_pss_hit = court.right.first_pss_hit = 0;
 assert.deepEqual(engine.leaders(court), { left: true, right: true });
 for (const [phase, remaining, expected] of [
@@ -41,5 +41,5 @@ for (const [phase, remaining, expected] of [
 ])
   assert.equal(engine.matchTimeText({ phase, remaining, breakRemaining: remaining }), expected);
 console.log(
-  'Live display checks passed: leader lights compare score, technical points and weak-hit counts, ignore arrival order and both light on ties; round decisions retain their existing rules.'
+  'Live display checks passed: leader lights use the round tie-break hierarchy, including manual/PSS first scores and first hits; both light for unresolved ties.'
 );

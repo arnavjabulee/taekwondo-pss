@@ -1,0 +1,9 @@
+node_modules/
+dist/
+test-results/
+round-exports/
+vendor-source/
+UoBTKD Training Suite/
+apps/camera-android/.gradle/
+apps/camera-android/**/build/
+apps/desktop/live-preview.json

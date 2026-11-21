@@ -149,3 +149,51 @@ section.player {
     margin-top: 8px;
   }
 }
+body.embedded-replay {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.embedded-replay header {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+}
+.embedded-replay header h1 {
+  font-size: 18px;
+}
+.embedded-replay main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  padding: 8px 16px;
+}
+.embedded-replay .setup {
+  flex: 0 0 auto;
+}
+.embedded-replay .player {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-top: 6px;
+}
+.embedded-replay video {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 0;
+  max-height: none;
+  object-fit: contain;
+}
+.embedded-replay .toolbar {
+  flex: 0 0 auto;
+  margin: 6px 0;
+  gap: 4px;
+}
+.embedded-replay #position,
+.embedded-replay #recording-path {
+  margin: 4px 0;
+}

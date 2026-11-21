@@ -1,4 +1,11 @@
 'use strict';
+if (window.parent !== window) document.body.classList.add('embedded-replay');
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape' && window.parent !== window) {
+    event.preventDefault();
+    window.parent.postMessage('uobtkd-close-replay', 'http://127.0.0.1:11818');
+  }
+});
 const $ = (id) => document.getElementById(id),
   video = $('video');
 let key = '',
@@ -15,13 +22,21 @@ let key = '',
   selectedFrom = 0,
   selectedTo = 0,
   collapsedSetup = false,
-  pendingReplay = null;
+  pendingReplay = null,
+  loopSeeking = false,
+  playbackRevision = 0,
+  archiveSegments = [],
+  archiveGeneration = '',
+  scope = 'live',
+  lastPause = null,
+  incidentStart = null,
+  incidentEnd = null;
 function completeUpdate() {
   updating = false;
   if (pendingReplay !== null) {
-    const seconds = pendingReplay;
+    const task = pendingReplay;
     pendingReplay = null;
-    replay(seconds);
+    task();
   }
 }
 async function request(path, data) {
@@ -47,7 +62,7 @@ function render() {
   $('code').textContent = Date.now() < state.codeExpires ? state.code : 'Expired';
   $('camera').textContent = state.camera
     ? state.camera.name +
-      ' · ' +
+      ' Â· ' +
       (!state.camera.approved
         ? 'Awaiting approval'
         : state.camera.connected
@@ -76,7 +91,7 @@ function render() {
   if (state.error) status(state.error);
   else if (state.recordingPath)
     $('recording-path').textContent =
-      (state.recording ? 'Recording' : 'Recording saved') + ' · ' + state.recordingPath;
+      (state.recording ? 'Recording' : 'Recording saved') + ' Â· ' + state.recordingPath;
 }
 async function append(bytes) {
   await new Promise((resolve, reject) => {
@@ -112,6 +127,16 @@ async function resetPlayer(start) {
 }
 async function updateVideo() {
   if (!state?.segments.length || updating) return;
+  if (generation && generation !== state.generation) {
+    scope = 'live';
+    mode = 'live';
+    buffer = null;
+    incidentStart = incidentEnd = null;
+  }
+  if (mode !== 'live' && scope !== 'live') {
+    await updateRange();
+    return;
+  }
   updating = true;
   try {
     if (generation !== state.generation || !buffer) {
@@ -145,11 +170,11 @@ async function updateVideo() {
     $('timeline').max = Math.max(0.001, lastEnd);
     $('timeline').value = video.currentTime;
     $('position').textContent =
-      (mode === 'live' ? 'Live · ' : 'Replay · ') +
+      (mode === 'live' ? 'Live Â· ' : 'Replay Â· ') +
       video.currentTime.toFixed(2) +
       ' / ' +
       lastEnd.toFixed(2) +
-      ' s · ' +
+      ' s Â· ' +
       (state.end - state.start).toFixed(0) +
       ' s buffered';
   } catch (e) {
@@ -158,38 +183,125 @@ async function updateVideo() {
     completeUpdate();
   }
 }
-async function replay(seconds) {
+async function archiveIndex() {
+  const result = await (await request('archive')).json();
+  if (result.generation !== state.generation)
+    throw new Error('Recording changed. Select the footage again.');
+  archiveGeneration = result.generation;
+  archiveSegments = result.segments;
+}
+function rangeUi() {
+  const length = Math.max(0.001, selectedTo - selectedFrom);
+  $('timeline').max = length;
+  $('timeline').value = Math.max(0, Math.min(length, video.currentTime + offset - selectedFrom));
+  $('position').textContent =
+    scope + ' · ' + Number($('timeline').value).toFixed(2) + ' / ' + length.toFixed(2) + ' s';
+}
+async function loadRangeAt(absolute) {
+  const segments = archiveSegments.filter(
+    (s) => s.end > absolute && s.start < Math.min(selectedTo, absolute + 20)
+  );
+  if (!segments.length) throw new Error('No video at this point');
+  await resetPlayer(segments[0].start);
+  for (const segment of segments) {
+    const response = await request('media?generation=' + generation + '&index=' + segment.index);
+    await append(await response.arrayBuffer());
+    loaded.add(segment.index);
+    lastEnd = segment.end - offset;
+  }
+  video.currentTime = Math.max(0, absolute - offset);
+}
+async function selectRange(from, to, label) {
+  playbackRevision++;
   if (!state?.segments.length) return;
   if (updating) {
     mode = 'replay';
     video.pause();
-    pendingReplay = seconds;
+    pendingReplay = () => selectRange(from, to, label);
     return;
   }
-  mode = 'replay';
   updating = true;
+  mode = 'replay';
+  scope = label;
   video.pause();
   try {
-    selectedTo = state.end;
-    selectedFrom = Math.max(state.start, selectedTo - seconds);
-    const segments = state.segments.filter((s) => s.end > selectedFrom && s.start < selectedTo);
+    await archiveIndex();
+    selectedFrom = Math.max(archiveSegments[0].start, from);
+    selectedTo = Math.min(archiveSegments.at(-1).end, to);
+    if (selectedTo <= selectedFrom) throw new Error('Choose an end after the start');
     generation = state.generation;
-    await resetPlayer(segments[0].start);
-    for (const segment of segments) {
-      const response = await request('media?generation=' + generation + '&index=' + segment.index);
-      await append(await response.arrayBuffer());
-      loaded.add(segment.index);
-      lastEnd = segment.end - offset;
-    }
-    video.currentTime = 0;
-    $('timeline').max = lastEnd;
-    $('timeline').value = 0;
+    await loadRangeAt(selectedFrom);
+    rangeUi();
     status('Replay ready. Recording continues on the phone.');
+    if (label === 'Incident') await video.play().catch((e) => status(e.message));
   } catch (e) {
     status(e.message);
   } finally {
     completeUpdate();
   }
+}
+async function updateRange() {
+  if (updating || !buffer) return;
+  updating = true;
+  try {
+    const absolute = video.currentTime + offset;
+    if (selectedTo - absolute > 0.03 && lastEnd + offset - absolute < 3) {
+      for (const segment of archiveSegments.filter(
+        (s) =>
+          s.end > absolute && s.start < Math.min(selectedTo, absolute + 20) && !loaded.has(s.index)
+      )) {
+        const response = await request(
+          'media?generation=' + generation + '&index=' + segment.index
+        );
+        await append(await response.arrayBuffer());
+        loaded.add(segment.index);
+        lastEnd = segment.end - offset;
+      }
+    }
+    if (buffer.buffered.length && video.currentTime > 60) {
+      await new Promise((resolve) => {
+        buffer.addEventListener('updateend', resolve, { once: true });
+        buffer.remove(0, video.currentTime - 30);
+      });
+    }
+    rangeUi();
+  } catch (e) {
+    status(e.message);
+  } finally {
+    completeUpdate();
+  }
+}
+async function seekRange(absolute) {
+  mode = 'replay';
+  video.pause();
+  absolute = Math.max(selectedFrom, Math.min(selectedTo - 0.001, absolute));
+  const relative = absolute - offset;
+  let buffered = false;
+  if (buffer)
+    for (let i = 0; i < buffer.buffered.length; i++)
+      if (relative >= buffer.buffered.start(i) && relative < buffer.buffered.end(i))
+        buffered = true;
+  if (buffered) {
+    video.currentTime = relative;
+    rangeUi();
+    return;
+  }
+  if (updating) {
+    pendingReplay = () => seekRange(absolute);
+    return;
+  }
+  updating = true;
+  try {
+    await loadRangeAt(absolute);
+    rangeUi();
+  } catch (e) {
+    status(e.message);
+  } finally {
+    completeUpdate();
+  }
+}
+async function replay(seconds) {
+  await selectRange(Math.max(state.archiveStart || 0, state.end - seconds), state.end, 'Replay');
 }
 async function poll() {
   if (busy) return;
@@ -197,7 +309,16 @@ async function poll() {
   try {
     state = await (await request('state')).json();
     render();
-    await updateVideo();
+    if (
+      state.pause &&
+      state.pause.generation === state.generation &&
+      lastPause !== state.pause.id &&
+      (state.end >= state.pause.to - 0.04 || !state.recording)
+    ) {
+      lastPause = state.pause.id;
+      incidentStart = incidentEnd = null;
+      await selectRange(state.pause.from, state.pause.to, 'Pause review');
+    } else await updateVideo();
   } catch (e) {
     status(e.message);
   } finally {
@@ -232,12 +353,15 @@ $('remove').onclick = async () => {
 for (const button of document.querySelectorAll('[data-replay]'))
   button.onclick = () => replay(Number(button.dataset.replay));
 $('live').onclick = () => {
-  status('Live camera · recording continues independently of replay.');
+  status('Live camera Â· recording continues independently of replay.');
   mode = 'live';
+  scope = 'live';
+  buffer = null;
   video.play().catch(() => {});
   poll();
 };
 $('play').onclick = () => {
+  playbackRevision++;
   mode = 'replay';
   video.paused ? video.play().catch((e) => status(e.message)) : video.pause();
 };
@@ -245,17 +369,24 @@ $('speed').onchange = () => {
   video.playbackRate = Number($('speed').value);
 };
 $('timeline').oninput = () => {
+  playbackRevision++;
   mode = 'replay';
   video.pause();
-  video.currentTime = Number($('timeline').value);
+  if (scope === 'live') video.currentTime = Number($('timeline').value);
+  else seekRange(selectedFrom + Number($('timeline').value));
 };
 function frame(delta) {
+  playbackRevision++;
   mode = 'replay';
   video.pause();
   const absolute = video.currentTime + offset;
   const times = (state?.segments || [])
     .flatMap((s) => s.frameTimes || [])
-    .filter((t) => t >= offset && t < offset + lastEnd);
+    .filter(
+      (t) =>
+        t >= (scope === 'live' ? offset : selectedFrom) &&
+        t < (scope === 'live' ? offset + lastEnd : selectedTo)
+    );
   const next =
     delta > 0
       ? times.find((t) => t > absolute + 0.00001)
@@ -263,28 +394,116 @@ function frame(delta) {
           .slice()
           .reverse()
           .find((t) => t < absolute - 0.00001);
-  if (next !== undefined) video.currentTime = next - offset;
-  $('timeline').value = video.currentTime;
+  if (scope !== 'live') seekRange(next === undefined ? absolute + delta / 30 : next);
+  else if (next !== undefined) video.currentTime = next - offset;
+  if (scope === 'live') $('timeline').value = video.currentTime;
+  else rangeUi();
 }
 $('back').onclick = () => frame(-1);
 $('forward').onclick = () => frame(1);
-document.addEventListener('keydown', (event) => {
-  if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName) || event.repeat) return;
-  if (event.code === 'Space') {
+function replayShortcut(action) {
+  if (action === 'toggle') $('play').click();
+  else if (action === 'back') frame(-1);
+  else if (action === 'forward') frame(1);
+}
+document.addEventListener(
+  'keydown',
+  (event) => {
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
+    const action = { Space: 'toggle', ArrowLeft: 'back', ArrowRight: 'forward' }[event.code];
+    if (!action) return;
     event.preventDefault();
-    $('play').click();
-  }
-  if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
-    event.preventDefault();
-    frame(event.code === 'ArrowLeft' ? -1 : 1);
-  }
+    event.stopImmediatePropagation();
+    if (!event.repeat) replayShortcut(action);
+  },
+  true
+);
+document.addEventListener(
+  'keyup',
+  (event) => {
+    if (event.code === 'Space') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  },
+  true
+);
+window.addEventListener('message', (event) => {
+  if (
+    event.source === window.parent &&
+    event.origin === 'http://127.0.0.1:11818' &&
+    event.data?.type === 'uobtkd-replay-shortcut'
+  )
+    replayShortcut(event.data.action);
 });
+
+video.addEventListener('timeupdate', () => {
+  if (scope === 'live') return;
+  if (video.currentTime + offset >= selectedTo - 0.01) {
+    if (scope === 'Incident' && !video.paused && !loopSeeking) {
+      loopSeeking = true;
+      const revision = playbackRevision;
+      seekRange(selectedFrom)
+        .then(() => {
+          if (scope === 'Incident' && playbackRevision === revision)
+            return video.play().catch((e) => status(e.message));
+        })
+        .finally(() => {
+          loopSeeking = false;
+        });
+      return;
+    }
+    video.pause();
+    video.currentTime = Math.max(0, selectedTo - offset - 0.001);
+  }
+  rangeUi();
+});
+$('pause-review').onclick = () => {
+  if (state?.pause) selectRange(state.pause.from, state.pause.to, 'Pause review');
+  else replay(10);
+};
+$('full-footage').onclick = () =>
+  selectRange(state.archiveStart || 0, state.archiveEnd || state.end, 'Full footage');
+window.addEventListener('message', (event) => {
+  if (
+    event.source !== window.parent ||
+    event.origin !== 'http://127.0.0.1:11818' ||
+    event.data !== 'uobtkd-default-review'
+  )
+    return;
+  if (state?.pause) selectRange(state.pause.from, state.pause.to, 'Pause review');
+  else if (state?.segments.length) replay(10);
+});
+$('incident-start').onclick = () => {
+  incidentStart = video.currentTime + offset;
+  $('incident-selection').textContent =
+    'Start ' +
+    incidentStart.toFixed(2) +
+    ' s' +
+    (incidentEnd === null ? '' : ' · End ' + incidentEnd.toFixed(2) + ' s');
+};
+$('incident-end').onclick = () => {
+  incidentEnd = video.currentTime + offset;
+  $('incident-selection').textContent =
+    (incidentStart === null ? '' : 'Start ' + incidentStart.toFixed(2) + ' s · ') +
+    'End ' +
+    incidentEnd.toFixed(2) +
+    ' s';
+};
+$('mark-incident').onclick = () => {
+  if (incidentStart === null || incidentEnd === null || incidentEnd <= incidentStart) {
+    status('Set an incident start and a later end.');
+    return;
+  }
+  selectRange(incidentStart, incidentEnd, 'Incident');
+};
+
 $('save').onclick = async () => {
   try {
     if (!state?.segments.length) return;
     const from =
         mode === 'replay'
-          ? Math.max(state.start, selectedFrom || offset)
+          ? Math.max(state.archiveStart || 0, selectedFrom)
           : Math.max(state.start, state.end - 30),
       to = mode === 'replay' ? Math.min(state.end, selectedTo || state.end) : state.end;
     const blob = await (
@@ -313,7 +532,7 @@ $('save').onclick = async () => {
       option.value = option.textContent = url;
       $('address').append(option);
     }
-    status('Ready · connect a camera');
+    status('Ready Â· connect a camera');
     await poll();
     setInterval(poll, 500);
   } catch (e) {

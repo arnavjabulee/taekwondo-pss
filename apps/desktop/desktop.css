@@ -1,0 +1,161 @@
+/* Electron panels fill their actual content area instead of stacking vh sections. */
+html,
+body,
+#app {
+  width: 100%;
+  height: 100% !important;
+  margin: 0 !important;
+}
+#app > .uobtkd-training {
+  display: flex;
+  flex-direction: column;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0;
+  overflow: hidden;
+}
+.uobtkd-training > .row:first-child {
+  flex: 0 0 auto;
+  height: auto !important;
+  min-height: 48px;
+  margin: 0 !important;
+}
+.uobtkd-training > .pss-courts,
+.uobtkd-training > .pss-training-courts-frame {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto !important;
+}
+.pss-training-courts-frame {
+  display: flex;
+  flex-direction: column;
+}
+.pss-training-courts-frame > .pss-courts {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto !important;
+}
+.uobtkd-training-controls {
+  position: relative !important;
+  flex: 0 0 64px;
+  height: 64px !important;
+  min-height: 64px;
+  margin: 0 !important;
+}
+.uobtkd-training-controls > .row {
+  margin: 0 !important;
+}
+.pss-competition .pss-court {
+  overflow: hidden;
+}
+.pss-competition .pss-sides {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.pss-competition .pss-participant {
+  min-height: 0;
+}
+.pss-competition .pss-score {
+  flex: 1 1 0;
+  min-height: 32px;
+  font-size: clamp(32px, 8vh, 100px);
+}
+.pss-competition .pss-competition-name {
+  font-size: clamp(22px, 3vw, 40px);
+  margin: 0;
+}
+.pss-competition .pss-competition-controls {
+  margin: 2px auto;
+  max-width: 600px;
+}
+.pss-competition .pss-point-controls {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  margin-bottom: 2px;
+}
+.pss-competition .pss-technical-controls,
+.pss-competition .pss-gam-jeom-controls {
+  margin: 1px 0;
+  gap: 4px;
+}
+.pss-competition .pss-technical-controls > div {
+  margin: 0;
+}
+.pss-competition .pss-competition-controls button,
+.pss-competition .pss-series button,
+.pss-competition .pss-series select {
+  padding: 3px 7px !important;
+  min-height: 24px;
+}
+.pss-competition .pss-kick-stats {
+  margin: 0;
+  line-height: 1.2;
+}
+.pss-competition .pss-series {
+  padding: 5px 12px;
+}
+.pss-competition .pss-referee-controls {
+  margin: 3px 0;
+  gap: 4px;
+}
+.pss-competition .pss-series p {
+  margin: 2px 0;
+}
+.pss-competition .pss-competition-display-tabs {
+  padding: 3px 8px;
+}
+.pss-competition .pss-court-equipment {
+  margin: 0;
+}
+.pss-competition .pss-panel-weak-meter:empty {
+  display: none;
+}
+@media (max-height: 800px) {
+  .pss-competition .pss-competition-name {
+    font-size: 24px;
+  }
+  .pss-competition .pss-competition-controls {
+    font-size: 12px;
+  }
+  .pss-competition .pss-competition-controls button {
+    padding: 2px 5px !important;
+  }
+  .pss-competition .pss-series {
+    font-size: 12px;
+  }
+  .pss-competition .pss-series-outcome {
+    font-size: 14px;
+    margin: 2px 0;
+  }
+  .pss-competition .pss-sides > .pss-participant > p {
+    margin: 1px 0;
+  }
+}
+@media (max-height: 800px) {
+  .pss-competition-setup {
+    padding: 12px;
+  }
+  .pss-competition-setup .pss-free-header {
+    margin-bottom: 4px;
+  }
+  .pss-competition-setup .pss-competition-pair {
+    margin: 10px 0;
+    gap: 12px;
+  }
+  .pss-competition-setup .pss-competition-pair > section {
+    padding: 12px;
+  }
+  .pss-competition-setup .pss-competition-pair h2 {
+    margin: 6px 0;
+  }
+  .pss-competition-setup .pss-competition-pair label {
+    margin-bottom: 6px;
+  }
+  .pss-competition-setup .pss-protector-test-toolbar {
+    margin: 10px 0;
+  }
+  .pss-competition-setup .pss-equipment-picker {
+    margin: 6px 0;
+    padding: 4px;
+  }
+}

@@ -22,7 +22,7 @@
             <div>
               <h2>Connect an Android camera</h2>
               <p>
-                Scan to install/open UoBTKD Replay Camera. Keep the camera app open while recording.
+                Scan to install/open UoBTKD Companion. Keep the camera app open while recording.
               </p>
               <label
                 >Phone network address
@@ -45,7 +45,9 @@
           are buffered in memory.
         </p>
         <div class="toolbar">
-          <button id="live">Live</button><button data-replay="5">Replay last 5 s</button
+          <button id="pause-review">Pause review · last 10 s</button
+          ><button id="full-footage">Full footage</button> <button id="live">Live</button
+          ><button data-replay="5">Replay last 5 s</button
           ><button data-replay="15">Replay last 15 s</button
           ><button data-replay="30">Replay last 30 s</button><button id="play">Play / pause</button
           ><label
@@ -63,6 +65,12 @@
           >Replay timeline
           <input id="timeline" type="range" min="0" max="1" step="0.001" value="0" /></label
         ><output id="position">No video yet</output>
+        <div class="toolbar">
+          <button id="incident-start">Set incident start</button>
+          <button id="incident-end">Set incident end</button>
+          <button id="mark-incident">Mark incident</button>
+          <output id="incident-selection">No incident marked</output>
+        </div>
       </section>
     </main>
   </body>

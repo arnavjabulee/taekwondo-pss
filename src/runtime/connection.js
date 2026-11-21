@@ -2,6 +2,8 @@
 (function (root) {
   'use strict';
   function attach(host, store) {
+    if (root.PSS_DESKTOP && root.PSS_DESKTOP.receiverAddress)
+      store.MQTT_SERVER = root.PSS_DESKTOP.receiverAddress;
     if (host._receiverGuard) return;
     host._receiverGuard = true;
     function error(value) {

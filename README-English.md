@@ -15,3 +15,5 @@ Android camera: install Android SDK 36 and run `powershell -File tools/build_cam
 Checks: `npm test`, `npm run test:native` and `npm run test:ui` (requires Microsoft Edge).
 
 Mobile judging: `npm run test:judges` and `npm run test:judge-ui`. The build bundles the local Wi-Fi bridge and Node runtime; no phone installation is required.
+
+Electron desktop: `npm run desktop`. Portable Windows build: `npm run desktop:package`; open `Start.cmd` in the output folder printed by the build. Check: `npm run test:desktop`.

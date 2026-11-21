@@ -461,6 +461,17 @@ async function verifyCompetition(page, artifacts) {
   await page.getByLabel('Body threshold (0–71)', { exact: true }).fill('8');
   await page.getByLabel('Body threshold (0–71)', { exact: true }).press('Tab');
   await page.getByRole('button', { name: 'Enter match mode', exact: true }).click();
+  await tv.waitForFunction(
+    () =>
+      document.getElementById('blue-leading').classList.contains('lit') &&
+      document.getElementById('red-leading').classList.contains('lit')
+  );
+  for (const id of ['blue-score', 'red-score'])
+    assert.equal(
+      await tv.locator('#' + id).evaluate((el) => getComputedStyle(el).color),
+      'rgb(255, 255, 255)'
+    );
+
   await page.locator('.pss-competition .uobtkd-courts:visible').waitFor();
   assert.equal(await page.getByRole('button', { name: 'Stop', exact: true }).count(), 0);
   await tv.locator('#blue-club').getByText('Bristol', { exact: true }).waitFor();
@@ -520,7 +531,7 @@ async function verifyCompetition(page, artifacts) {
     .locator('.uobtkd-courts:visible')
     .getByRole('button', { name: 'Blue add 1 points', exact: true })
     .click();
-  await tv.locator('#blue-punches').getByText('1', { exact: true }).waitFor();
+  assert.equal(await tv.locator('#blue-punches').count(), 0);
   assert.deepEqual(
     await page.evaluate(() => window.__manualScoreCues.map((cue) => [cue.type, cue.kind, cue.key])),
     [['hit', 'court', 1]]
@@ -534,7 +545,7 @@ async function verifyCompetition(page, artifacts) {
     .locator('.uobtkd-courts:visible')
     .getByRole('button', { name: 'Blue remove 1 points', exact: true })
     .click();
-  await tv.locator('#blue-punches').getByText('0', { exact: true }).waitFor();
+  assert.equal(await tv.locator('#blue-punches').count(), 0);
 
   assert.equal(
     await tv.locator('#red-leading').evaluate((el) => el.classList.contains('lit')),
@@ -543,6 +554,14 @@ async function verifyCompetition(page, artifacts) {
   assert.equal(
     await tv.locator('#blue-leading').evaluate((el) => el.classList.contains('lit')),
     false
+  );
+  assert.equal(
+    await tv.locator('#red-score').evaluate((el) => getComputedStyle(el).color),
+    'rgb(0, 255, 0)'
+  );
+  assert.equal(
+    await tv.locator('#blue-score').evaluate((el) => getComputedStyle(el).color),
+    'rgb(255, 255, 255)'
   );
   assert.equal(await tv.locator('#blue-name').innerText(), 'Alex Live');
   assert.equal(await tv.locator('#red-name').innerText(), 'Sam Taylor');
@@ -586,6 +605,14 @@ async function verifyCompetition(page, artifacts) {
       document.getElementById('blue-leading').classList.contains('lit') &&
       !document.getElementById('red-leading').classList.contains('lit')
   );
+  assert.equal(
+    await liveCourt.locator('.pss-blue .pss-score').evaluate((el) => getComputedStyle(el).color),
+    'rgb(0, 255, 0)'
+  );
+  assert.equal(
+    await tv.locator('#blue-score').evaluate((el) => getComputedStyle(el).color),
+    'rgb(0, 255, 0)'
+  );
   await liveCourt.getByRole('button', { name: 'Blue technical head +3', exact: true }).click();
   assert.match(
     await liveCourt.locator('.pss-blue .pss-kick-stats').innerText(),
@@ -600,7 +627,7 @@ async function verifyCompetition(page, artifacts) {
     c.gameinfo.toukui_gate = 1;
     c.$parent.onAuthClientMessage('DevData', '000000000002,value:200');
   });
-  await tv.locator('#blue-weak-body').getByText('1', { exact: true }).waitFor();
+  await tv.locator('#blue-weak-total').getByText('1', { exact: true }).waitFor();
   await tv.locator('#blue-weak-meter').waitFor({ state: 'visible' });
   assert.match(await tv.locator('#blue-weak-meter').innerText(), /8\s+5/);
   const tvLabelY = await tv
@@ -618,7 +645,7 @@ async function verifyCompetition(page, artifacts) {
       .querySelector('.uobtkd-training')
       .__vue__.$parent.onAuthClientMessage('DevData', '000000000012,value:20')
   );
-  await tv.locator('#blue-weak-head').getByText('1', { exact: true }).waitFor();
+  await tv.locator('#blue-weak-total').getByText('2', { exact: true }).waitFor();
   assert.match(await tv.locator('#blue-weak-meter').innerText(), /1\s+1/);
   assert.match(
     await liveCourt.locator('.pss-blue .pss-weak-counts').innerText(),
@@ -628,8 +655,8 @@ async function verifyCompetition(page, artifacts) {
   assert.equal(await tv.locator('#blue-weak-meter').isVisible(), true);
   await tv.locator('#blue-weak-meter').waitFor({ state: 'hidden', timeout: 2000 });
   await liveCourt.locator('.pss-panel-weak-meter').waitFor({ state: 'hidden', timeout: 2000 });
-  assert.equal(await tv.locator('#blue-weak-head').innerText(), '1');
-  assert.equal(await tv.locator('#blue-weak-body').innerText(), '1');
+  assert.equal(await tv.locator('#blue-weak-total').innerText(), '2');
+  assert.equal(await tv.locator('#blue-punches').count(), 0);
   const beforeDisconnect = await page.evaluate(() => {
     const c = document.querySelector('.uobtkd-training').__vue__;
     const before = { time: c.gvi.game[0].competition.remaining, score: c.gvi.game[0].right.score };
@@ -1169,7 +1196,11 @@ async function verifyMenuSettings(page, artifacts) {
     delete window._menuReceiverClient;
   });
   const menu = page.getByRole('navigation', { name: 'Main menu' });
-  assert.equal(await menu.getByRole('button').count(), 6);
+  assert.equal(await menu.getByRole('button').count(), 3);
+  assert.equal(
+    await page.getByRole('navigation', { name: 'Tools', exact: true }).getByRole('button').count(),
+    3
+  );
   const competition = await menu
     .getByRole('button', { name: 'Competition', exact: true })
     .boundingBox();
@@ -1177,7 +1208,10 @@ async function verifyMenuSettings(page, artifacts) {
     .getByRole('button', { name: 'Court Training', exact: true })
     .boundingBox();
   assert(court.y >= competition.y + competition.height);
-  await menu.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Tools', exact: true })
+    .getByRole('button', { name: 'Settings', exact: true })
+    .click();
   await page.locator('.pss-settings').waitFor();
   await page.getByLabel('Round duration in seconds (1–36000)', { exact: true }).fill('90');
   await page.getByLabel('Break duration in seconds (0–3600)', { exact: true }).fill('0');
@@ -1814,6 +1848,10 @@ async function main() {
     await page.evaluate(() => window.OnVkEscape());
     await page.locator('#myModal').waitFor({ state: 'hidden' });
     await page.evaluate(() => window.OnVkEscape());
+    await page
+      .getByRole('alertdialog', { name: 'Leave match mode' })
+      .getByRole('button', { name: 'Leave match', exact: true })
+      .click();
     await page.locator('.pss-competition-setup').waitFor();
     await page.evaluate(() => window.OnVkEscape());
     await page.locator('.pss-referee-setup').waitFor();

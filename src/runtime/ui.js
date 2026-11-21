@@ -41,5 +41,59 @@
     }
   }
 
-  root.UOBTKD_UI = { notify: notify, cleanDefaults: cleanDefaults };
+  function confirm(message, done) {
+    var document = root.document,
+      previous = document.activeElement;
+    var overlay = document.createElement('div');
+    overlay.className = 'pss-confirm-overlay';
+    var panel = document.createElement('section');
+    panel.className = 'pss-confirm-panel';
+    panel.setAttribute('role', 'alertdialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', 'Leave match mode');
+    var text = document.createElement('p');
+    text.textContent = message;
+    panel.appendChild(text);
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Cancel';
+    var leave = document.createElement('button');
+    leave.type = 'button';
+    leave.textContent = 'Leave match';
+    var finished = false;
+    function finish(accepted) {
+      if (finished) return;
+      finished = true;
+      document.removeEventListener('keydown', trap, true);
+      overlay.parentNode.removeChild(overlay);
+      if (previous && document.documentElement.contains(previous)) previous.focus();
+      done(accepted);
+    }
+    function trap(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        finish(false);
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        (document.activeElement === cancel ? leave : cancel).focus();
+      }
+    }
+    cancel.onclick = function () {
+      finish(false);
+    };
+    leave.onclick = function () {
+      finish(true);
+    };
+    panel.appendChild(cancel);
+    panel.appendChild(leave);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', trap, true);
+    cancel.focus();
+    return function () {
+      finish(false);
+    };
+  }
+  root.UOBTKD_UI = { notify: notify, cleanDefaults: cleanDefaults, confirm: confirm };
 })(window);

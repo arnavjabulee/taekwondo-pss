@@ -455,6 +455,7 @@ def main():
             asset.unlink()
     (web / 'assets').mkdir(exist_ok=True)
     shutil.copy2(ROOT / 'src/assets/menu-background.png', web / 'assets/menu-background.png')
+    shutil.copytree(ROOT / 'src/assets/fonts', web / 'assets/fonts', dirs_exist_ok=True)
     php_config = OUTPUT / 'nginx/php7.4.3nts/php.ini'
     if php_config.exists():
         settings = php_config.read_text(encoding='utf-8')
@@ -532,7 +533,14 @@ def main():
         "echo Application executable not found. Run the build script first.\npause\n"
     )
     shutil.copy2(ROOT / 'tools/prepare_portable.ps1', OUTPUT / 'Prepare-Portable.ps1')
-    (OUTPUT / "Start.cmd").write_text(launcher, encoding="ascii")
+    (OUTPUT / "Start-Legacy.cmd").write_text(launcher, encoding="ascii")
+    electron_launcher = (
+        '@echo off\ncd /d "%~dp0"\n'
+        'if exist "%~dp0..\\dist\\electron\\UoBTKD Training Suite-win32-x64\\Start.cmd" (\n'
+        '    call "%~dp0..\\dist\\electron\\UoBTKD Training Suite-win32-x64\\Start.cmd"\n'
+        '    exit /b\n)\n'
+    )
+    (OUTPUT / "Start.cmd").write_text(electron_launcher + launcher, encoding="ascii")
     old_launcher = OUTPUT / "Start-English.cmd"
     if old_launcher.exists():
         old_launcher.unlink()

@@ -123,12 +123,15 @@
     );
   }
   function currentView() {
+    var page = host && host.$route && host.$route.name;
+    if (page && ['GameCtrl', 'FreeTraining', 'CompetitionSetup'].indexOf(page) < 0) return null;
     var found = null;
     function visit(view) {
       if (!view || view._isDestroyed || view._isBeingDestroyed) return;
       if (
         (view.gvi && typeof view.gameControl === 'function') ||
-        (view.session && typeof view.toggleTracking === 'function')
+        (view.session && typeof view.toggleTracking === 'function') ||
+        (page === 'CompetitionSetup' && typeof view.toggleTest === 'function')
       )
         found = view;
       (view.$children || []).forEach(visit);
@@ -149,11 +152,17 @@
     var view = currentView();
     if (action.id === 'toggle' && view) {
       if (view.session) view.toggleTracking();
+      else if (typeof view.toggleTest === 'function') view.toggleTest();
       else view.gameControl();
     } else if (action.id === 'equipment' && root.PSS_NAV) root.PSS_NAV.equipment();
     else if (action.id === 'spectator' && view && root.PSS_SPECTATOR) root.PSS_SPECTATOR.open();
     else if (action.id === 'resetStopwatch' && view && view.session) view.resetStopwatch();
-    else if (view && view.gvi && root.PSS_MODES.isCompetition()) {
+    else if (
+      view &&
+      view.gvi &&
+      (!host.$route || host.$route.name === 'GameCtrl') &&
+      root.PSS_MODES.isCompetition()
+    ) {
       var side = action.side === 'blue' ? 'left' : 'right';
       if (action.id === 'skipBreak') view.skipCompetitionBreak();
       else if (action.points) view.adjustCompetitionScore(side, action.points);
@@ -170,6 +179,8 @@
   }
   function process(key) {
     if (!key) return false;
+    if (root.PSS_DESKTOP && root.PSS_DESKTOP.replayShortcut && root.PSS_DESKTOP.replayShortcut(key))
+      return true;
     if (capture) {
       if (key === 'Escape') {
         cancelCapture();

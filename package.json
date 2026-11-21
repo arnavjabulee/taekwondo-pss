@@ -13,14 +13,24 @@
     "test:replay": "node tools/verify_replay.cjs && node tools/verify_replay_ui.cjs",
     "test:replay-android": "node tools/verify_replay_android.cjs",
     "test:ui": "node tools/verify_ui.cjs",
-    "test:native": "python tools/verify_native.py"
+    "test:native": "python tools/verify_native.py",
+    "desktop": "electron .",
+    "desktop:package": "node tools/package_desktop.cjs",
+    "test:desktop": "node tools/verify_desktop.cjs",
+    "test:companion-android": "node tools/verify_companion_android.cjs",
+    "test:desktop-layout": "node tools/verify_desktop_layout.cjs",
+    "test:score-sounds": "node tools/verify_score_sounds.cjs",
+    "test:live-preview": "node tools/verify_live_preview.cjs"
   },
   "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "45.3.2",
     "playwright": "1.62.1",
     "prettier": "^3.9.10"
   },
   "dependencies": {
-    "ws": "^8.23.0",
-    "qrcode-generator": "2.0.4"
-  }
+    "qrcode-generator": "2.0.4",
+    "ws": "^8.23.0"
+  },
+  "main": "apps/desktop/main.cjs"
 }

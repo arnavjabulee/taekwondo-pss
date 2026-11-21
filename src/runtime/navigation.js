@@ -5,6 +5,8 @@
     store = null,
     history = [],
     backPending = false,
+    confirmingBack = false,
+    cancelBackConfirmation = null,
     competitionReturn = null;
   function route(value) {
     return { name: value.name, params: value.params || {}, query: value.query || {} };
@@ -12,7 +14,7 @@
   function activeController() {
     var found = null;
     function visit(view) {
-      if (!view || view._isDestroyed) return;
+      if (!view || view._isDestroyed || view._isBeingDestroyed) return;
       if (view.gvi && view.gvi.game && typeof view.exit_to_data === 'function') found = view;
       (view.$children || []).forEach(visit);
     }
@@ -99,7 +101,11 @@
       history.push(route(to));
     });
   }
-  function back() {
+  function back(confirmed) {
+    if (confirmingBack) {
+      if (cancelBackConfirmation) cancelBackConfirmation();
+      return;
+    }
     if (root.PSS_EQUIPMENT && root.PSS_EQUIPMENT.isOpen()) {
       root.PSS_EQUIPMENT.close();
       return;
@@ -123,23 +129,53 @@
       return;
     }
     if (!host || host.$route.name === 'Index' || backPending) return;
+    if (
+      confirmed !== true &&
+      host.$route.name === 'GameCtrl' &&
+      controller &&
+      root.PSS_MODES.isCompetition() &&
+      controller.gvi.game[0].competition &&
+      controller.gvi.game[0].competition.started
+    ) {
+      confirmingBack = true;
+      cancelBackConfirmation = root.UOBTKD_UI.confirm(
+        'Leave match mode and return to protector testing?',
+        function (accepted) {
+          confirmingBack = false;
+          cancelBackConfirmation = null;
+          if (accepted && host.$route.name === 'GameCtrl' && activeController() === controller)
+            back(true);
+        }
+      );
+      return;
+    }
     var previousHistory = history.slice(),
       current = route(host.$route),
       target;
-    if (history.length > 1) history.pop();
-    while (
-      history.length &&
-      JSON.stringify(history[history.length - 1]) === JSON.stringify(current)
-    )
-      history.pop();
-    target = history.length
-      ? history[history.length - 1]
-      : {
-          name:
-            host.$route.name === 'GameCtrl' && root.PSS_MODES.isCompetition()
-              ? 'CompetitionSetup'
-              : 'Index'
-        };
+    var competitionBack = {
+      CompetitionSetup: 'CompetitionJudges',
+      CompetitionJudges: 'Index'
+    };
+    if (current.name === 'GameCtrl' && root.PSS_MODES.isCompetition())
+      target = { name: 'CompetitionSetup' };
+    else if (competitionBack[current.name]) target = { name: competitionBack[current.name] };
+    if (target) history = [];
+    else {
+      if (history.length > 1) history.pop();
+      while (
+        history.length &&
+        JSON.stringify(history[history.length - 1]) === JSON.stringify(current)
+      )
+        history.pop();
+      target = history.length
+        ? history[history.length - 1]
+        : {
+            name:
+              host.$route.name === 'GameCtrl' && root.PSS_MODES.isCompetition()
+                ? 'CompetitionSetup'
+                : 'Index'
+          };
+    }
     backPending = true;
     function completed() {
       backPending = false;

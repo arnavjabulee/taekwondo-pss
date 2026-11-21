@@ -27,3 +27,5 @@ test-results/
 # Previous local distributions and migration helper.
 /*Sport*/
 /tools/move-local.ps1
+/apps/desktop/live-preview.json
+/round-exports/

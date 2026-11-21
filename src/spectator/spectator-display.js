@@ -115,7 +115,6 @@
       text(side + '-club', person.club || '');
       text(side + '-score', person.score);
       text(side + '-gam-jeoms', person.gamJeoms);
-      text(side + '-punches', person.punches || 0);
       text(
         side + '-ivr',
         person.ivrPending
@@ -127,8 +126,11 @@
       text(side + '-wins', person.wins);
       element(side + '-leading').classList.toggle('lit', !!person.leading);
       element(side + '-leading').style.visibility = 'visible';
-      text(side + '-weak-head', person.weakHead || 0);
-      text(side + '-weak-body', person.weakBody || 0);
+      element(side + '-score').classList.toggle(
+        'score-leading',
+        !!person.leading && !data[side === 'blue' ? 'red' : 'blue'].leading
+      );
+      text(side + '-weak-total', (person.weakHead || 0) + (person.weakBody || 0));
       renderWeak(side, person.lastWeak);
       element(side + '-score').classList.toggle('compact', String(person.score).length > 2);
       root.document
@@ -410,6 +412,22 @@
     'keydown',
     function (event) {
       if (
+        (event.key === 'Escape' || event.key === 'Esc' || event.keyCode === 27) &&
+        root.parent !== root
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!event.repeat)
+          root.parent.postMessage({ type: 'uobtkd-spectator-back', channel: channel }, origin);
+        return;
+      }
+      if (root.parent !== root && event.key !== 'f' && event.key !== 'F') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        forwardInlineKey(event, 'keydown');
+        return;
+      }
+      if (
         (event.key === 'Escape' ||
           event.key === 'Esc' ||
           event.keyCode === 27 ||
@@ -430,6 +448,42 @@
       ) {
         event.preventDefault();
         fullscreen();
+      }
+    },
+    true
+  );
+  function forwardInlineKey(event, type) {
+    root.parent.postMessage(
+      {
+        type: 'uobtkd-spectator-key',
+        channel: channel,
+        eventType: type,
+        input: {
+          key: event.key,
+          code: event.code,
+          keyCode: event.keyCode,
+          repeat: event.repeat,
+          ctrlKey: event.ctrlKey,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+          metaKey: event.metaKey
+        }
+      },
+      origin
+    );
+  }
+  root.document.addEventListener(
+    'keyup',
+    function (event) {
+      if (
+        root.parent !== root &&
+        event.key !== 'Escape' &&
+        event.key !== 'f' &&
+        event.key !== 'F'
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        forwardInlineKey(event, 'keyup');
       }
     },
     true
