@@ -1,47 +1,51 @@
-"""Create a clean portable Windows release without local data or recordings."""
+"""Zip a clean Electron Windows build, retaining bundled runtime licenses."""
 from pathlib import Path
 import argparse
 import hashlib
 import json
-import re
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / 'UoBTKD Training Suite'
-EXCLUDED = {'LocalStorage', 'data', 'recordings', 'logs', 'temp', 'tmp', 'bin', '__pycache__', 'docs', 'contrib', 'import table template'}
-EXCLUDED_SUFFIXES = {'.log', '.pid', '.tmp', '.localstorage', '.db', '.sqlite', '.sqlite3', '.pyc'}
+VERSION = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
+EXCLUDED = {'recordings', 'LocalStorage', 'data', 'logs', 'temp', 'test-results', '__pycache__'}
+EXCLUDED_SUFFIXES = {'.log', '.pid', '.localstorage', '.db', '.sqlite', '.sqlite3', '.pyc'}
 
-def build(destination):
-    required = ['Start.cmd', 'Prepare-Portable.ps1', 'UoBTKD Training Suite.exe', 'UoBTKD Training Suite.dll', 'native-update/UoBTKD Training Suite.exe', 'judge-bridge/node.exe', 'judge-bridge/apps/replay/camera.apk', 'nginx/nginx.exe']
-    for relative in required:
-        if not (APP / relative).is_file():
-            raise FileNotFoundError('Build the application first: ' + relative)
+
+def build(app, destination):
+    required = ['Start.cmd', 'UoBTKD Training Suite.exe', 'resources/app/package.json',
+                'resources/app/desktop/main.cjs', 'resources/suite/web/index.html',
+                'resources/suite/judge-bridge/node.exe',
+                'resources/suite/judge-bridge/apps/replay/camera.apk']
+    for name in required:
+        if not (app / name).is_file():
+            raise FileNotFoundError('Missing Electron runtime file: ' + name)
+    metadata = json.loads((app / 'resources/app/package.json').read_text(encoding='utf-8'))
+    if metadata['version'] != VERSION:
+        raise ValueError('Rebuild the Electron app for version ' + VERSION)
     destination.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-        for file in sorted(APP.rglob('*')):
+        for file in sorted(app.rglob('*')):
             if not file.is_file():
                 continue
-            relative = file.relative_to(APP)
+            relative = file.relative_to(app)
             if any(part in EXCLUDED for part in relative.parts) or file.suffix.lower() in EXCLUDED_SUFFIXES:
                 continue
-            if relative.as_posix() in {'Athletes-English.csv', 'config', 'judge-bridge/firewall-setup.log'}:
+            if file.name == 'live-preview.json':
                 continue
-            content = file.read_bytes()
-            if relative.as_posix() == 'nginx/php7.4.3nts/php.ini':
-                settings = content.decode('utf-8')
-                for key, value in {'extension_dir':'ext', 'error_log':'php.log', 'session.save_path':'tmp', 'opcache.blacklist_filename':'blacklist', 'opcache.file_cache':'bin'}.items():
-                    settings = re.sub(r'^' + re.escape(key) + r'=.*$', lambda m: key+'='+value, settings, flags=re.M)
-                content = settings.encode('utf-8')
-            archive.writestr('UoBTKD Training Suite/' + relative.as_posix(), content)
-        archive.writestr('UoBTKD Training Suite/config', '[LEDA]\r\nLANGUAGE=0000000000\r\nSERVER=http://beiot.imwork.net:81\r\nUSERID=\r\nTOKEN=\r\n')
-        archive.writestr('UoBTKD Training Suite/README.txt', 'UoBTKD Training Suite\r\n\r\nExtract the entire folder, then open Start.cmd.\r\nFor phones, use the QR code shown by this laptop. Enable phone connections once if prompted.\r\nVideo replay: install the Android camera app from the replay QR page.\r\n')
-        for directory in ['LocalStorage', 'data', 'nginx/logs', 'nginx/temp', 'nginx/php7.4.3nts/tmp', 'nginx/php7.4.3nts/bin']:
-            archive.writestr('UoBTKD Training Suite/' + directory + '/', b'')
-    digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+            archive.writestr('UoBTKD Training Suite/' + relative.as_posix(), file.read_bytes())
+    with zipfile.ZipFile(destination) as archive:
+        if archive.testzip() is not None:
+            raise ValueError('ZIP integrity check failed')
+        assert 'UoBTKD Training Suite/Start.cmd' in archive.namelist()
+        assert not any(name.endswith('live-preview.json') or '/recordings/' in name for name in archive.namelist())
+    digest = hashlib.file_digest(destination.open('rb'), 'sha256').hexdigest() if hasattr(hashlib, 'file_digest') else hashlib.sha256(destination.read_bytes()).hexdigest()
     destination.with_suffix('.zip.sha256').write_text(digest + '  ' + destination.name + '\n', encoding='ascii')
-    print(json.dumps({'file':str(destination),'bytes':destination.stat().st_size,'sha256':digest}))
+    print(json.dumps({'file': str(destination), 'bytes': destination.stat().st_size, 'sha256': digest}))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output', type=Path, default=ROOT / 'dist/UoBTKD-Training-Suite-Windows-v1.1.0.zip')
-    build(parser.parse_args().output.resolve())
+    parser.add_argument('--app', type=Path, required=True)
+    parser.add_argument('--output', type=Path, default=ROOT / ('dist/UoBTKD-Training-Suite-Windows-v' + VERSION + '.zip'))
+    args = parser.parse_args()
+    build(args.app.resolve(), args.output.resolve())
