@@ -96,6 +96,8 @@ function render() {
   $('approve').hidden = !state.camera || state.camera.approved;
   $('remove').hidden = !state.camera;
   const url = $('address').value + '/camera#code=' + state.code;
+  $('camera-link').href = url;
+  if (!window.qrcode) $('qr').textContent = 'QR unavailable. Use the camera link and pairing code.';
   if ($('qr').dataset.url !== url && window.qrcode) {
     const qr = qrcode(0, 'M');
     qr.addData(url);

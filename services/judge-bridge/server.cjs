@@ -482,12 +482,7 @@ function createBridge(options = {}) {
         '/camera.js': ['apps/replay/camera.js', 'text/javascript'],
         '/camera-mp4.js': ['apps/replay/camera-mp4.js', 'text/javascript'],
         '/browser-camera.js': ['apps/replay/browser-camera.js', 'text/javascript'],
-        '/qr.js': [
-          fs.existsSync(path.join(root, 'apps/replay/qrcode.js'))
-            ? 'apps/replay/qrcode.js'
-            : path.relative(root, require.resolve('qrcode-generator')),
-          'text/javascript'
-        ],
+        '/qr.js': ['apps/replay/qrcode.js', 'text/javascript'],
         '/camera.apk': [
           fs.existsSync(path.join(root, 'apps/replay/camera.apk'))
             ? 'apps/replay/camera.apk'
@@ -500,7 +495,19 @@ function createBridge(options = {}) {
         '/protocol.js': ['packages/judge-protocol/index.js', 'text/javascript']
       };
       if (req.method === 'GET' && files[url.pathname]) {
-        const [filename, type] = files[url.pathname];
+        let [filename, type] = files[url.pathname];
+        if (url.pathname === '/qr.js' && !fs.existsSync(path.join(root, filename))) {
+          try {
+            filename = path.relative(root, require.resolve('qrcode-generator'));
+          } catch {
+            filename = '';
+          }
+          if (!filename || !fs.existsSync(path.join(root, filename)))
+            return reply(res, 503, {
+              error:
+                'QR-code helper is missing. Extract the entire Windows ZIP. The camera address and pairing code can still be used manually.'
+            });
+        }
         if (!fs.existsSync(path.join(root, filename)))
           return reply(res, 404, {
             error:
@@ -519,6 +526,14 @@ function createBridge(options = {}) {
       }
       reply(res, 404, { error: 'Not found.' });
     } catch (error) {
+      console.error(
+        'Bridge request failed:',
+        req.method,
+        String(req.url || '')
+          .split('?')[0]
+          .slice(0, 200),
+        error.stack || error.message
+      );
       if (!res.headersSent)
         reply(res, error.status || 500, {
           error: error.status ? error.message : 'Bridge request failed.'

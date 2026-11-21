@@ -15,7 +15,12 @@ def build(app, destination):
     required = ['Start.cmd', 'UoBTKD Training Suite.exe', 'resources/app/package.json',
                 'resources/app/desktop/main.cjs', 'resources/suite/web/index.html',
                 'resources/suite/judge-bridge/node.exe',
-                'resources/suite/judge-bridge/apps/replay/camera.apk']
+                'resources/suite/judge-bridge/apps/replay/camera.apk',
+                'resources/suite/judge-bridge/apps/replay/qrcode.js',
+                'resources/suite/judge-bridge/node_modules/qrcode-generator/package.json',
+                'resources/suite/judge-bridge/apps/replay/browser-camera.js',
+                'resources/suite/judge-bridge/apps/replay/camera-mp4.js',
+                'resources/suite/judge-bridge/services/judge-bridge/camera-tunnel.cjs']
     for name in required:
         if not (app / name).is_file():
             raise FileNotFoundError('Missing Electron runtime file: ' + name)

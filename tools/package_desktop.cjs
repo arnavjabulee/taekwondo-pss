@@ -31,6 +31,34 @@ const { randomUUID } = require('node:crypto');
       !['recordings', 'camera-tools', '.git', 'test-results'].includes(path.basename(source)) &&
       !/\.(log|pid)$/.test(source)
   });
+  // Copy runtime sources directly so packaging cannot silently use stale generated files.
+  const bridge = path.join(suite, 'judge-bridge');
+  for (const directory of [
+    'apps/judge',
+    'apps/replay',
+    'services/judge-bridge',
+    'packages/judge-protocol'
+  ])
+    fs.cpSync(path.join(root, directory), path.join(bridge, directory), { recursive: true });
+  for (const dependency of ['ws', 'qrcode-generator'])
+    fs.cpSync(
+      path.join(root, 'node_modules', dependency),
+      path.join(bridge, 'node_modules', dependency),
+      { recursive: true }
+    );
+  fs.copyFileSync(
+    path.join(root, 'node_modules/qrcode-generator/dist/qrcode.js'),
+    path.join(bridge, 'apps/replay/qrcode.js')
+  );
+  for (const required of [
+    'apps/replay/index.html',
+    'apps/replay/qrcode.js',
+    'apps/replay/browser-camera.js',
+    'apps/replay/camera-mp4.js',
+    'services/judge-bridge/camera-tunnel.cjs'
+  ])
+    if (!fs.statSync(path.join(bridge, required)).isFile())
+      throw new Error('Missing replay runtime: ' + required);
   const defaultOutput = path.join(root, 'dist/electron');
   const destination =
     process.env.UOBTKD_PACKAGE_OUTPUT ||

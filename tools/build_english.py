@@ -507,6 +507,7 @@ def main():
     for folder in ['apps/judge', 'apps/replay', 'services/judge-bridge', 'packages/judge-protocol']:
         shutil.copytree(ROOT / folder, judge_root / folder, dirs_exist_ok=True)
     shutil.copytree(ROOT / 'node_modules/ws', judge_root / 'node_modules/ws', dirs_exist_ok=True)
+    shutil.copytree(ROOT / 'node_modules/qrcode-generator', judge_root / 'node_modules/qrcode-generator', dirs_exist_ok=True)
     shutil.copy2(ROOT / 'node_modules/qrcode-generator/dist/qrcode.js', judge_root / 'apps/replay/qrcode.js')
     camera_apk = ROOT / 'apps/camera-android/app/build/outputs/apk/debug/app-debug.apk'
     if camera_apk.exists():
