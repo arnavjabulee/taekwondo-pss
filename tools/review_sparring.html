@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sparring review</title>
+<style>
+  :root {color-scheme:dark; font:15px system-ui,sans-serif; background:#11151b; color:#eef2f8; --line:#303a46; --muted:#a6b5c7; --accent:#bdea7a}
+  * {box-sizing:border-box}
+  body {max-width:1380px; margin:auto; padding:30px clamp(14px,4vw,50px)}
+  header,.toolbar,.review-actions,.row,.tabs {display:flex; align-items:center; gap:10px}
+  header {justify-content:space-between; margin-bottom:22px}
+  h1 {font-size:clamp(25px,4vw,38px); letter-spacing:-.045em; margin:0}
+  h2 {font-size:16px; margin:0}
+  header a {color:var(--accent)}
+  .toolbar {margin-bottom:14px; flex-wrap:wrap}
+  main {display:grid; grid-template-columns:minmax(0,2.35fr) minmax(275px,1fr); gap:20px}
+  .stage {min-width:0}
+  video {width:100%; display:block; background:#050609; aspect-ratio:16/9; border-radius:12px; border:1px solid var(--line)}
+  .player {position:relative}
+  #tracking-overlay {position:absolute; inset:0; pointer-events:none}
+  #tracking-overlay.picking {pointer-events:auto; cursor:crosshair}
+  .track-dot {position:absolute; transform:translate(-50%,-50%); border-radius:50%;
+    width:25px; height:25px; display:grid; place-items:center; color:#131920; font-weight:bold;
+    box-shadow:0 0 0 2px #131920}
+  button,select {font:inherit; color:inherit; background:#232b34; border:1px solid var(--line); border-radius:7px; padding:8px 12px}
+  button {cursor:pointer}
+  button:disabled {cursor:default; opacity:.5}
+  button:hover:enabled {border-color:#a6b5c7}
+  button:focus-visible, select:focus-visible {outline:2px solid var(--accent); outline-offset:3px}
+  #clip {flex:1; min-width:180px; max-width:100%}
+  .primary {background:var(--accent); color:#19240f; font-weight:700; border-color:var(--accent)}
+  aside {border:1px solid var(--line); border-radius:12px; background:#191f27; min-width:0; overflow:hidden}
+  .panel-header {padding:15px; border-bottom:1px solid var(--line)}
+  .tabs {margin-top:10px}
+  [aria-pressed="true"] {border-color:var(--accent); color:var(--accent)}
+  #events {max-height:65vh; overflow:auto; padding:8px; margin:0; list-style:none}
+  #events li {margin:3px 0}
+  .event {text-align:left; padding:9px 10px; width:100%; display:grid; grid-template-columns:4.6em 1fr auto; gap:8px; align-items:center}
+  .event[aria-current="true"] {outline:1px solid var(--accent); background:#28362b}
+  .time {font-variant-numeric:tabular-nums; color:var(--muted)}
+  .meta {color:var(--muted); font-size:.8em; text-align:right}
+  .confirmed {color:var(--accent)}
+  .rejected {color:#ffaaa1}
+  #summary,#status {color:var(--muted); min-height:1.45em}
+  #selected {flex:1; margin:0}
+  .review-actions {margin-top:14px; flex-wrap:wrap}
+  .review-actions button {padding:7px 10px}
+  #timeline {position:relative; height:25px; background:#232b34; border-radius:5px; margin-top:12px; cursor:pointer}
+  #timeline:empty {display:none}
+  .marker {position:absolute; top:4px; width:8px; height:17px; padding:0; border:0; background:#edb586; transform:translateX(-50%); border-radius:3px}
+  .marker.actual {background:#9dd3ff}
+  .marker[aria-current="true"] {outline:2px solid white}
+  @media(max-width:850px) {main {grid-template-columns:1fr} #events {max-height:40vh}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sparring review</h1>
+  <a id="review-mode" href="/?model=spin-pilot" hidden>Spinning-kick pilot</a>
+</header>
+<div class="toolbar">
+  <label for="clip">Clip</label>
+  <select id="clip" disabled></select>
+  <label for="model">Detector</label>
+  <select id="model" disabled><option value="motion">Motion baseline</option></select>
+  <button id="run" class="primary" type="button" disabled>Run detector</button>
+  <button id="track" type="button" disabled>Track two athletes</button>
+  <button id="replay-tracks" type="button" disabled>Replay tracks</button>
+  <label for="speed">Speed</label>
+  <select id="speed"><option value="0.5">½×</option><option value="0.75">¾×</option><option value="1" selected>1×</option></select>
+</div>
+<main>
+  <section class="stage" aria-label="Video review">
+    <div class="player">
+      <video id="video" controls preload="metadata"></video>
+      <div id="tracking-overlay" aria-hidden="true"></div>
+    </div>
+    <div id="timeline" aria-label="Event timeline"></div>
+    <div class="review-actions">
+      <p id="selected">Select an event to review it.</p>
+      <button id="previous" type="button" disabled>Previous</button>
+      <button id="next" type="button" disabled>Next</button>
+      <button id="confirm" type="button" disabled>Confirm</button>
+      <button id="reject" type="button" disabled>Reject</button>
+      <button id="clear" type="button" disabled>Clear</button>
+    </div>
+    <p id="status" role="status">Loading clips…</p>
+  </section>
+  <aside aria-label="Events">
+    <div class="panel-header">
+      <h2>Events</h2>
+      <div class="tabs" role="group" aria-label="Event source">
+        <button id="predictions" type="button" aria-pressed="true">Predictions</button>
+        <button id="labels" type="button" aria-pressed="false">Labels &amp; examples</button>
+      </div>
+      <p id="summary"></p>
+    </div>
+    <ol id="events"></ol>
+  </aside>
+</main>
+<script>
+'use strict';
+
+const get = (id) => document.getElementById(id);
+const clip = get('clip');
+const model = get('model');
+const video = get('video');
+const spinPilot = new URLSearchParams(location.search).get('model') === 'spin-pilot';
+const names = { punch_attempt: 'Punch', spinning_kick_attempt: 'Spinning kick', ordinary_kick: 'Ordinary kick' };
+const storageKey = 'leda-sparring-review-v1';
+let reviews = {};
+try { reviews = JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch {}
+let pilotReviews = {};
+let savingPilotReview = false;
+let events = { predictions: [], labels: [] };
+let tab = 'labels';
+let selected = -1;
+let request;
+let previewEnd;
+const overlay = get('tracking-overlay');
+let seeds = [];
+let trackFrames = [];
+let trackingStart = 0;
+let trackingRequest;
+
+function resetTracking() {
+  trackingRequest?.abort();
+  trackingRequest = undefined;
+  seeds = [];
+  trackFrames = [];
+  get('replay-tracks').disabled = true;
+  overlay.classList.remove('picking');
+  overlay.replaceChildren();
+}
+
+function showPoints(points) {
+  const scale = Math.min(video.clientWidth / video.videoWidth, video.clientHeight / video.videoHeight);
+  const width = video.videoWidth * scale;
+  const height = video.videoHeight * scale;
+  overlay.replaceChildren(...points.flatMap((point, index) => {
+    if (!point) return [];
+    const dot = document.createElement('span');
+    dot.className = 'track-dot';
+    dot.textContent = index ? 'B' : 'A';
+    dot.style.background = index ? '#9dd3ff' : '#edb586';
+    dot.style.left = `${(video.clientWidth - width) / 2 + point[0] * width}px`;
+    dot.style.top = `${(video.clientHeight - height) / 2 + point[1] * height}px`;
+    return [dot];
+  }));
+}
+
+function renderTracks() {
+  if (trackFrames.length) {
+    const time = video.currentTime;
+    const index = Math.max(0, Math.round((time - trackingStart) * 8));
+    const end = trackFrames.at(-1).time;
+    showPoints(time >= trackingStart - 0.01 && time <= end + 0.13 ? trackFrames[index]?.points || [] : []);
+    if (!video.paused && time >= end && time <= end + 0.13) video.pause();
+  }
+}
+
+get('track').onclick = () => {
+  resetTracking();
+  video.pause();
+  trackingStart = video.currentTime;
+  overlay.classList.add('picking');
+  status('Click athlete A on the chest.');
+};
+
+get('replay-tracks').onclick = () => {
+  video.currentTime = trackingStart;
+  renderTracks();
+  video.play().catch(() => {});
+};
+
+overlay.onclick = async (event) => {
+  if (!overlay.classList.contains('picking')) return;
+  const rect = overlay.getBoundingClientRect();
+  const scale = Math.min(rect.width / video.videoWidth, rect.height / video.videoHeight);
+  const width = video.videoWidth * scale;
+  const height = video.videoHeight * scale;
+  const x = (event.clientX - rect.left - (rect.width - width) / 2) / width;
+  const y = (event.clientY - rect.top - (rect.height - height) / 2) / height;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return;
+  seeds.push([x, y]);
+  showPoints(seeds);
+  if (seeds.length < 2) {
+    status('Now click athlete B on the chest.');
+    return;
+  }
+  overlay.classList.remove('picking');
+  status('Following both athletes…');
+  const [a, b] = seeds;
+  const pending = trackingRequest = new AbortController();
+  const query = new URLSearchParams({clip: clip.value, time: trackingStart, ax: a[0], ay: a[1], bx: b[0], by: b[1]});
+  try {
+    const response = await fetch('/track?' + query, {signal: pending.signal});
+    const result = await response.json();
+    if (trackingRequest !== pending) return;
+    if (!response.ok) throw new Error(result.error || 'Tracking failed.');
+    trackFrames = result.frames;
+    get('replay-tracks').disabled = false;
+    const both = trackFrames.filter(frame => frame.points.every(Boolean)).length;
+    const missing = trackFrames[0].points.flatMap((point, index) => point ? [] : [index ? 'B' : 'A']);
+    status(missing.length
+      ? `No clear starting pose for ${missing.join(' and ')}. Try another frame and click the centre of each chest.`
+      : `Both tracks visible in ${both} of ${trackFrames.length} samples. Lost tracks stay hidden until you start a new test.`);
+    get('replay-tracks').click();
+  } catch (error) {
+    if (trackingRequest === pending) {
+      overlay.replaceChildren();
+      status(error.message);
+    }
+  }
+};
+
+function status(message) { get('status').textContent = message; }
+function clock(ms) {
+  const total = Math.floor(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}.${String(Math.floor(ms % 1000 / 10)).padStart(2, '0')}`;
+}
+function key(event) {
+  const coordinates = [clip.value, event.time_ms, event.action];
+  if (event.athlete_id) coordinates.push(event.athlete_id);
+  return JSON.stringify(model.value === 'motion' ? coordinates : [model.value, ...coordinates]);
+}
+function verdictFor(event) {
+  return spinPilot ? pilotReviews[event.time_ms] : reviews[key(event)];
+}
+function control(text, title, callback) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = text;
+  button.title = title;
+  button.onclick = callback;
+  return button;
+}
+
+function render() {
+  const items = events[tab];
+  const prediction = tab === 'predictions';
+  const selectedEvent = items[selected];
+  const confirmed = events.predictions.filter((event) => verdictFor(event) === 'Confirmed').length;
+  const rejected = events.predictions.filter((event) => verdictFor(event) === 'Rejected').length;
+  get('summary').textContent = prediction
+    ? `${items.length} predictions · ${confirmed} confirmed · ${rejected} rejected`
+    : `${items.length} saved labels`;
+  get('predictions').setAttribute('aria-pressed', String(prediction));
+  get('labels').setAttribute('aria-pressed', String(!prediction));
+  get('selected').textContent = selectedEvent
+    ? `${clock(selectedEvent.time_ms)} · ${names[selectedEvent.action]}`
+    : 'Select an event to review it.';
+  get('previous').disabled = selected <= 0;
+  get('next').disabled = selected + 1 >= items.length;
+  get('confirm').disabled = get('reject').disabled = savingPilotReview || !prediction || !selectedEvent;
+  get('clear').disabled = savingPilotReview || !prediction || !selectedEvent || !verdictFor(selectedEvent);
+  get('events').replaceChildren(...items.map((event, index) => {
+    const row = document.createElement('li');
+    const button = control('', 'Jump to event', () => select(index));
+    button.className = 'event';
+    button.setAttribute('aria-current', String(index === selected));
+    const badge = prediction ? verdictFor(event) : '';
+    for (const [text, cls] of [[clock(event.time_ms), 'time'], [names[event.action], ''],
+      [prediction ? [event.athlete_id, badge || `Score ${event.confidence.toFixed(2)}`].filter(Boolean).join(' · ')
+        : (event.athlete_id || ''), badge?.toLowerCase() || 'meta']]) {
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = text;
+      button.append(span);
+    }
+    row.append(button);
+    return row;
+  }));
+
+  const duration = video.duration * 1000;
+  get('timeline').replaceChildren(...(Number.isFinite(duration) && duration > 0 ? items.map((event, index) => {
+    const title = `${clock(event.time_ms)} · ${names[event.action]}`;
+    const marker = control('', title, (click) => { click.stopPropagation(); select(index); });
+    marker.className = prediction ? 'marker' : 'marker actual';
+    marker.style.left = `${Math.min(100, event.time_ms / duration * 100)}%`;
+    marker.setAttribute('aria-label', title);
+    marker.setAttribute('aria-current', String(index === selected));
+    return marker;
+  }) : []));
+}
+
+function select(index) {
+  const event = events[tab][index];
+  if (!event) return;
+  selected = index;
+  const seconds = event.time_ms / 1000;
+  video.currentTime = Math.max(0, seconds - (spinPilot ? 1.25 : 0.75));
+  if (spinPilot) previewEnd = seconds + 0.75;
+  video.play().catch(() => {});
+  render();
+  get('events').children[index]?.scrollIntoView({ block: 'nearest' });
+}
+
+function review(verdict) {
+  const event = events.predictions[selected];
+  if (tab !== 'predictions' || !event) return;
+  if (spinPilot) {
+    savePilotReview(event, verdict);
+    return;
+  }
+  if (verdict) reviews[key(event)] = verdict;
+  else delete reviews[key(event)];
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(reviews));
+    status(verdict ? `Review saved · ${verdict}` : 'Review cleared.');
+  } catch {
+    status('Browser storage is unavailable. This review is only saved for the current session.');
+  }
+  render();
+}
+
+async function savePilotReview(event, verdict) {
+  if (savingPilotReview) return;
+  const name = clip.value;
+  savingPilotReview = true;
+  render();
+  try {
+    const response = await fetch('/spin-pilot/reviews', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({clip: name, time_ms: event.time_ms, verdict}),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Could not save this review.');
+    if (clip.value !== name) return;
+    pilotReviews = result.reviews;
+    status(verdict ? `Review saved · ${verdict}` : 'Review cleared.');
+    if (verdict && tab === 'predictions' && events.predictions[selected] === event) {
+      const next = events.predictions.findIndex((candidate, index) => index > selected && !verdictFor(candidate));
+      if (next >= 0) {
+        select(next);
+      } else if (clip.selectedIndex + 1 < clip.options.length) {
+        clip.selectedIndex += 1;
+        await loadClip(true);
+      }
+    }
+  } catch (error) {
+    if (clip.value === name) status(error.message);
+  } finally {
+    savingPilotReview = false;
+    render();
+  }
+}
+
+function resetEvents(clearLabels = false) {
+  request?.abort();
+  request = undefined;
+  previewEnd = undefined;
+  pilotReviews = {};
+  events = { predictions: [], labels: clearLabels ? [] : events.labels };
+  selected = -1;
+  get('run').disabled = false;
+  status('Choose a saved event or run the selected detector.');
+  render();
+}
+
+async function loadClip(preview = false) {
+  resetTracking();
+  get('track').disabled = true;
+  video.src = '/video?' + new URLSearchParams({ clip: clip.value });
+  video.playbackRate = Number(get('speed').value);
+  resetEvents(true);
+  if (spinPilot) {
+    const loaded = await loadPredictions();
+    if (loaded && preview) select(0);
+    return;
+  }
+  const name = clip.value;
+  try {
+    const response = await fetch('/labels?' + new URLSearchParams({clip: name}));
+    if (!response.ok) throw new Error('Could not load saved events.');
+    const labels = await response.json();
+    if (clip.value === name) {
+      events.labels = labels;
+      render();
+    }
+  } catch (error) {
+    if (clip.value === name) status(error.message);
+  }
+}
+
+async function loadPredictions() {
+  const pending = request = new AbortController();
+  get('run').disabled = true;
+  status(spinPilot ? 'Loading suggestions…' : 'Analysing clip…');
+  try {
+    const response = await fetch('/predictions?' + new URLSearchParams({ clip: clip.value, model: model.value }), { signal: pending.signal });
+    const result = await response.json();
+    if (pending !== request) return;
+    if (!response.ok) throw new Error(result.error || 'Prediction failed.');
+    events = { predictions: result.predictions, labels: result.labels.map((event) => ({ ...event, time_ms: Number(event.time_ms) })) };
+    if (spinPilot) pilotReviews = result.reviews;
+    tab = 'predictions';
+    selected = -1;
+    render();
+    if (spinPilot) {
+      status(result.predictions.length ? 'Review the highest-scored exchange for this clip.' : 'No exchange is available for this clip.');
+    } else {
+      status(result.predictions.length ? 'Select a prediction to watch from just before its timestamp.' : 'The detector returned no predictions for this clip.');
+    }
+    return true;
+  } catch (error) {
+    if (pending === request) status(error.message);
+  } finally {
+    if (pending === request) get('run').disabled = false;
+  }
+}
+
+get('run').onclick = loadPredictions;
+clip.onchange = () => loadClip();
+model.onchange = () => resetEvents();
+video.onloadedmetadata = () => { get('track').disabled = false; render(); };
+video.addEventListener('timeupdate', renderTracks);
+video.addEventListener('seeked', renderTracks);
+video.addEventListener('play', () => {
+  function tick() {
+    renderTracks();
+    if (previewEnd !== undefined && video.currentTime >= previewEnd) {
+      previewEnd = undefined;
+      video.pause();
+    }
+    if (!video.paused) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+});
+video.onerror = () => status('This clip could not be played in the browser.');
+get('speed').onchange = () => { video.playbackRate = Number(get('speed').value); };
+get('timeline').onclick = (event) => {
+  previewEnd = undefined;
+  const box = event.currentTarget.getBoundingClientRect();
+  video.currentTime = video.duration * (event.clientX - box.left) / box.width;
+};
+for (const name of ['predictions', 'labels']) {
+  get(name).onclick = () => { tab = name; selected = -1; render(); };
+}
+get('previous').onclick = () => select(selected - 1);
+get('next').onclick = () => select(selected + 1);
+get('confirm').onclick = () => review('Confirmed');
+get('reject').onclick = () => review('Rejected');
+get('clear').onclick = () => review('');
+
+(async () => {
+  try {
+    const response = await fetch(spinPilot ? '/clips?model=spin-pilot' : '/clips');
+    if (!response.ok) throw new Error('Could not load the clips.');
+    const clips = await response.json();
+    if (spinPilot) {
+      document.querySelector('h1').textContent = document.title = 'Spinning-kick review';
+      const mode = get('review-mode');
+      mode.href = '/';
+      mode.textContent = 'All detectors';
+      mode.hidden = false;
+      document.querySelector('label[for="model"]').hidden = true;
+      model.replaceChildren(new Option('Spinning-kick pilot', 'spin-pilot'));
+      model.hidden = get('track').hidden = get('replay-tracks').hidden = true;
+      get('run').textContent = 'Reload suggestions';
+      get('labels').textContent = 'Saved spins';
+      if (!clips.length) throw new Error('No spinning-kick pilot results are available.');
+    } else {
+      if (!clips.length) throw new Error('No eligible clips in round-exports.');
+      const modelsResponse = await fetch('/models');
+      if (modelsResponse.ok) {
+        const models = await modelsResponse.json();
+        get('review-mode').hidden = !models.includes('spin-pilot');
+        for (const [value, label] of [['pose', 'Pose baseline'], ['athlete-pose', 'Per-athlete pose'],
+          ['video', 'Short video clips']]) {
+          if (models.includes(value)) model.add(new Option(label, value));
+        }
+        model.disabled = model.options.length < 2;
+      }
+    }
+    clip.replaceChildren(...clips.map((path) => new Option(path, path)));
+    const sample = 'us-open-gergely/round-04.mp4';
+    if (!spinPilot && clips.includes(sample)) clip.value = sample;
+    clip.disabled = false;
+    loadClip();
+  } catch (error) { status(error.message); }
+})();
+</script>
+</body>
+</html>

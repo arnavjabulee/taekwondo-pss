@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sparring labels</title>
+<style>
+  :root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #121820; color: #edf3fa; }
+  body { margin: 0 auto; max-width: 1280px; padding: 24px; }
+  header, .actions, .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  header { justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  h2 { font-size: 1rem; margin: 0 0 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(230px, 1fr); gap: 16px; }
+  video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #05080b; border-radius: 10px; }
+  button, select, .picker { font: inherit; color: inherit; padding: 9px 12px; border: 1px solid #455265; border-radius: 7px; background: #222d3b; }
+  button, .picker { cursor: pointer; }
+  button:hover:enabled, .picker:hover { border-color: #bed2ed; }
+  button:disabled { opacity: .48; cursor: default; }
+  kbd { font: inherit; font-size: .8em; padding: 2px 5px; margin-left: 5px; border-radius: 4px; background: #0003; }
+  select#clips { max-width: 100%; flex: 1; min-width: 0; }
+  .toolbar { margin-bottom: 12px; }
+  .actions { margin-top: 12px; }
+  #athletes button[aria-pressed="true"] { background: #e5efff; color: #121820; }
+  .punch, .kick { flex: 1; padding: 14px; font-weight: 650; color: #0b1620; }
+  .punch { background: #83d6fb; }
+  .kick { background: #ffbb7e; }
+  aside { background: #1a2330; border-radius: 10px; padding: 14px; min-width: 0; }
+  #events { padding: 0; list-style: none; max-height: 58vh; overflow: auto; }
+  #events li { display: flex; gap: 6px; margin-bottom: 6px; }
+  #events .jump { flex: 1; text-align: left; background: #263345; }
+  #status { color: #b8c6d8; min-height: 1.5em; }
+  @media (max-width: 780px) { main { grid-template-columns: 1fr; } body { padding: 12px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sparring labels</h1>
+  <div class="actions">
+    <button id="open" type="button">Open clips folder</button>
+    <input id="files" type="file" webkitdirectory multiple hidden>
+    <button id="export" type="button">Export CSV</button>
+  </div>
+</header>
+<main>
+  <section aria-label="Clip player">
+    <div class="toolbar">
+      <label for="clips">Clip</label>
+      <select id="clips" disabled></select>
+      <label for="speed">Speed</label>
+      <select id="speed"><option value="0.5">½×</option><option value="0.75">¾×</option><option value="1" selected>1×</option></select>
+      <button id="next" type="button" disabled>Next clip</button>
+    </div>
+    <video id="video" controls playsinline preload="metadata"></video>
+    <div class="actions" aria-label="Frame controls">
+      <button id="previous-frame" type="button" disabled>Previous frame <kbd>,</kbd></button>
+      <button id="next-frame" type="button" disabled>Next frame <kbd>.</kbd></button>
+    </div>
+    <div id="athletes" class="actions" role="group" aria-label="Athlete for new marks">
+      <span>Athlete</span>
+      <button type="button" data-athlete="A" aria-pressed="false">A / Red <kbd>1</kbd></button>
+      <button type="button" data-athlete="B" aria-pressed="false">B / Blue <kbd>2</kbd></button>
+      <button type="button" data-athlete="" aria-pressed="true">Unassigned <kbd>0</kbd></button>
+    </div>
+    <div class="actions">
+      <button id="punch" class="punch" type="button" disabled>Punch <kbd>P</kbd></button>
+      <button id="kick" class="kick" type="button" disabled>Spinning kick <kbd>K</kbd></button>
+      <button id="undo" type="button" disabled>Undo <kbd>Z</kbd></button>
+    </div>
+    <p id="status" role="status">Open the round-exports folder to begin.</p>
+  </section>
+  <aside aria-label="Saved marks">
+    <h2 id="count">Marks in this clip</h2>
+    <ol id="events"></ol>
+  </aside>
+</main>
+<script>
+'use strict';
+
+const byId = (id) => document.getElementById(id);
+const video = byId('video');
+const picker = byId('files');
+const clips = byId('clips');
+const speed = byId('speed');
+const storageKey = 'leda-sparring-labels-v1';
+const labels = { punch_attempt: 'Punch', spinning_kick_attempt: 'Spinning kick' };
+const athleteNames = new Map([['', 'Unassigned'], ['A', 'A / Red'], ['B', 'B / Blue']]);
+const athleteButtons = [...byId('athletes').querySelectorAll('button')];
+let marks = [];
+let athlete = '';
+let files = new Map();
+let frameRates = new Map();
+let mediaUrl;
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+  if (Array.isArray(saved)) marks = saved;
+} catch {
+  byId('status').textContent = 'Saved marks could not be loaded. Export this session before closing.';
+}
+
+function refresh() {
+  const rows = marks.filter((mark) => mark.clip === clips.value);
+  byId('count').textContent = `Marks in this clip · ${rows.length}`;
+  byId('undo').disabled = rows.length === 0;
+  byId('export').disabled = marks.length === 0;
+  const ready = video.readyState >= 1 && !video.error;
+  byId('punch').disabled = byId('kick').disabled = !ready;
+  const canStep = ready && frameRates.has(clips.value);
+  byId('previous-frame').disabled = byId('next-frame').disabled = !canStep;
+  const items = [...rows].sort((a, b) => a.time_ms - b.time_ms).map((mark) => {
+    const item = document.createElement('li');
+    const jump = document.createElement('button');
+    jump.className = 'jump';
+    jump.textContent = `${(mark.time_ms / 1000).toFixed(2)}s · ${labels[mark.action]}`;
+    jump.onclick = () => {
+      video.pause();
+      video.currentTime = Math.max(0, mark.time_ms / 1000 - 0.75);
+    };
+    const remove = document.createElement('button');
+    const assign = document.createElement('select');
+    assign.setAttribute('aria-label', `Athlete for mark at ${mark.time_ms} milliseconds`);
+    assign.replaceChildren(...[...athleteNames].map(([id, name]) => new Option(name, id)));
+    assign.value = mark.athlete_id || '';
+    assign.onchange = () => {
+      mark.athlete_id = assign.value;
+      save('Athlete assignment saved.');
+    };
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', `Delete mark at ${mark.time_ms} milliseconds`);
+    remove.onclick = () => {
+      marks.splice(marks.indexOf(mark), 1);
+      save('Mark deleted.');
+    };
+    item.append(jump, assign, remove);
+    return item;
+  });
+  byId('events').replaceChildren(...items);
+}
+
+function save(message) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(marks));
+  } catch {
+    message += ' Browser storage is unavailable. Export before closing.';
+  }
+  byId('status').textContent = message;
+  refresh();
+}
+
+function selectClip() {
+  const file = files.get(clips.value);
+  if (!file) return;
+  selectAthlete('');
+  if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+  mediaUrl = URL.createObjectURL(file);
+  video.src = mediaUrl;
+  video.playbackRate = Number(speed.value);
+  byId('next').disabled = clips.selectedIndex >= clips.length - 1;
+  byId('status').textContent = 'Play the clip, then press P or K as each action happens.';
+  refresh();
+}
+
+function mark(action) {
+  if (video.readyState < 1 || video.error || !files.has(clips.value)) return;
+  const time_ms = Math.round(video.currentTime * 1000);
+  marks.push({ clip: clips.value, time_ms, action, athlete_id: athlete });
+  save(`${labels[action]} saved at ${(time_ms / 1000).toFixed(2)}s · ${athleteNames.get(athlete)}.`);
+}
+
+function selectAthlete(id) {
+  athlete = id;
+  for (const button of athleteButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.athlete === athlete));
+  }
+}
+
+function undo() {
+  const index = marks.findLastIndex((mark) => mark.clip === clips.value);
+  if (index < 0) return;
+  marks.splice(index, 1);
+  save('Last mark in this clip removed.');
+}
+
+function stepFrame(direction) {
+  const fps = frameRates.get(clips.value);
+  if (!fps || video.readyState < 1 || video.error) return;
+  video.pause();
+  const current = Math.floor(video.currentTime * fps + 0.0001);
+  const next = Math.max(0, Math.min(current + direction, Math.ceil(video.duration * fps) - 1));
+  if (next !== current) {
+    // Seek just inside the target frame to tolerate rounded MP4 timestamps.
+    video.currentTime = (next + 0.1) / fps;
+  }
+}
+
+byId('open').onclick = () => picker.click();
+picker.onchange = async () => {
+  const selected = Array.from(picker.files);
+  const entries = selected
+    .filter((file) => /\.(mp4|webm|m4v|mov)$/i.test(file.name))
+    .map((file) => [file.webkitRelativePath.split('/').slice(1).join('/'), file])
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+  if (!entries.length) {
+    byId('status').textContent = 'No video clips found in that folder.';
+    return;
+  }
+  const rates = new Map();
+  for (const file of selected.filter((item) => item.name === 'rounds.json')) {
+    try {
+      const manifest = JSON.parse(await file.text());
+      const folder = file.webkitRelativePath.split('/').slice(1, -1);
+      if (!Number.isFinite(manifest.fps) || manifest.fps <= 0) continue;
+      for (const round of manifest.rounds) {
+        rates.set([...folder, round.clip].join('/'), manifest.fps);
+      }
+    } catch {
+      // Clips without a readable manifest can still be tagged during playback.
+    }
+  }
+  files = new Map(entries);
+  frameRates = rates;
+  clips.replaceChildren(...entries.map(([path]) => new Option(path, path)));
+  clips.disabled = false;
+  selectClip();
+};
+clips.onchange = selectClip;
+byId('next').onclick = () => {
+  if (clips.selectedIndex + 1 >= clips.length) return;
+  clips.selectedIndex += 1;
+  selectClip();
+};
+speed.onchange = () => { video.playbackRate = Number(speed.value); };
+video.onloadedmetadata = refresh;
+video.onerror = () => {
+  byId('status').textContent = 'This clip could not be played. Check that it uses a browser-supported codec such as H.264.';
+  refresh();
+};
+byId('punch').onclick = () => mark('punch_attempt');
+byId('kick').onclick = () => mark('spinning_kick_attempt');
+byId('undo').onclick = undo;
+for (const button of athleteButtons) {
+  button.onclick = () => selectAthlete(button.dataset.athlete);
+}
+byId('previous-frame').onclick = () => stepFrame(-1);
+byId('next-frame').onclick = () => stepFrame(1);
+byId('export').onclick = () => {
+  const csvField = (value) => '"' + value.replaceAll('"', '""') + '"';
+  const rows = [...marks].sort((a, b) => a.clip.localeCompare(b.clip) || a.time_ms - b.time_ms);
+  const csv = ['clip,time_ms,action,athlete_id',
+    ...rows.map((row) => `${csvField(row.clip)},${row.time_ms},${row.action},${row.athlete_id || ''}`)];
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' }));
+  link.download = 'sparring-labels.csv';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+};
+document.addEventListener('keydown', (event) => {
+  if ((event.repeat && event.key !== ',' && event.key !== '.') ||
+      event.ctrlKey || event.metaKey || event.altKey ||
+      event.target.closest('input, select, textarea, [contenteditable="true"]')) return;
+  switch (event.key.toLowerCase()) {
+    case 'p': mark('punch_attempt'); break;
+    case 'k': mark('spinning_kick_attempt'); break;
+    case 'z': undo(); break;
+    case '1': selectAthlete('A'); break;
+    case '2': selectAthlete('B'); break;
+    case '0': selectAthlete(''); break;
+    case ',': stepFrame(-1); break;
+    case '.': stepFrame(1); break;
+    default: return;
+  }
+  event.preventDefault();
+});
+refresh();
+</script>
+</body>
+</html>
