@@ -29,3 +29,10 @@ test-results/
 /tools/move-local.ps1
 /apps/desktop/live-preview.json
 /round-exports/
+
+# Local Xcode build and signing state.
+apps/camera-ios/build/
+apps/camera-ios/DerivedData/
+apps/camera-ios/**/xcuserdata/
+*.xcuserstate
+camera-tools/

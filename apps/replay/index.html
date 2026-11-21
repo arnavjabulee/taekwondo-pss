@@ -20,9 +20,16 @@
           <div class="pair">
             <div id="qr" role="img" aria-label="Scan to set up the replay camera"></div>
             <div>
-              <h2>Connect an Android camera</h2>
+              <h2>Connect a replay camera</h2>
               <p>
-                Scan to install/open UoBTKD Companion. Keep the camera app open while recording.
+                Use Safari on iPhone or the Android camera app. Keep the camera page/app open while
+                recording.
+              </p>
+              <button id="enable-browser">Enable iPhone / browser camera</button>
+              <button id="disable-browser" hidden>Disable browser link</button>
+              <p id="browser-link-status" role="status">
+                Browser camera needs an HTTPS link. Internet required; video travels through
+                Cloudflare.
               </p>
               <label
                 >Phone network address

@@ -7,3 +7,10 @@ document.getElementById('open').href =
   encodeURIComponent(location.origin) +
   '&code=' +
   encodeURIComponent(code);
+
+const ios =
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+document.getElementById('android-download').hidden = ios || location.protocol === 'https:';
+document.getElementById('android-install').hidden = ios || location.protocol === 'https:';
+document.getElementById('ios-install').hidden = !ios;

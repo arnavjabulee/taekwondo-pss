@@ -7,6 +7,7 @@ const os = require('node:os');
 const { createNetworkSetup } = require('./network.cjs');
 const { attachLive } = require('./live.cjs');
 const { createReplay } = require('./replay.cjs');
+const { createCameraTunnel } = require('./camera-tunnel.cjs');
 const { execFile } = require('node:child_process');
 const protocol = require('../../packages/judge-protocol/index.js');
 const root = path.resolve(__dirname, '../..');
@@ -21,9 +22,11 @@ buildHash.update(fs.readFileSync(path.join(root, 'packages/judge-protocol/index.
 buildHash.update(require('ws/package.json').version);
 const buildId = buildHash.digest('hex').slice(0, 16);
 function createBridge(options = {}) {
+  const cameraTunnel = options.cameraTunnel || createCameraTunnel({ root });
   const replay = createReplay({
     directory: options.replayDirectory || path.join(root, 'recordings'),
     now: options.now,
+    browserCameraState: () => cameraTunnel.state(),
     open:
       options.openReplay ||
       (() =>
@@ -277,6 +280,19 @@ function createBridge(options = {}) {
         return reply(res, 200, { service: 'uobtkd-judge-bridge', version: 3, buildId });
       if (url.pathname === '/api/desktop/replay/addresses')
         return reply(res, 200, { urls: addresses() });
+      if (url.pathname === '/api/desktop/replay/tunnel') {
+        if (req.method === 'GET') return reply(res, 200, cameraTunnel.state());
+        if (req.method === 'POST') {
+          const input = await body(req);
+          if (input.enabled === true) {
+            void cameraTunnel.start('http://127.0.0.1:' + server.address().port);
+            return reply(res, 200, cameraTunnel.state());
+          }
+          if (input.enabled === false) return reply(res, 200, await cameraTunnel.stop());
+          return reply(res, 400, { error: 'Choose whether to enable the browser-camera link.' });
+        }
+        return reply(res, 405, { error: 'Method not allowed.' });
+      }
       if (await replay.handle(req, res, url, desktopRoute)) return;
       if (
         url.pathname === '/api/desktop/network' &&
@@ -464,6 +480,8 @@ function createBridge(options = {}) {
         '/replay.css': ['apps/replay/replay.css', 'text/css'],
         '/camera': ['apps/replay/camera.html', 'text/html'],
         '/camera.js': ['apps/replay/camera.js', 'text/javascript'],
+        '/camera-mp4.js': ['apps/replay/camera-mp4.js', 'text/javascript'],
+        '/browser-camera.js': ['apps/replay/browser-camera.js', 'text/javascript'],
         '/qr.js': [
           fs.existsSync(path.join(root, 'apps/replay/qrcode.js'))
             ? 'apps/replay/qrcode.js'
@@ -558,12 +576,17 @@ function createBridge(options = {}) {
     addresses,
     close: () => {
       live.close();
-      return replay.close().then(() => new Promise((resolve) => server.close(resolve)));
-    }
+      return cameraTunnel
+        .stop()
+        .then(() => replay.close())
+        .then(() => new Promise((resolve) => server.close(resolve)));
+    },
+    terminate: () => cameraTunnel.terminate()
   };
 }
 if (require.main === module) {
   const bridge = createBridge();
+  process.once('exit', () => bridge.terminate());
   bridge.server.listen(Number(process.env.JUDGE_PORT || 8976), '0.0.0.0', () =>
     console.log('Judge controller: ' + bridge.addresses().join(', '))
   );

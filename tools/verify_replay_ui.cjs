@@ -191,10 +191,31 @@ async function main() {
     );
     const phone = await browser.newPage();
     await phone.goto(base + '/camera#code=' + state.code);
+    await phone.locator('details').evaluate((element) => {
+      element.open = true;
+    });
     assert.equal(await phone.locator('#code').innerText(), state.code);
     assert(
       (await phone.locator('#open').getAttribute('href')).startsWith('uobtkd-camera://pair?server=')
     );
+    assert(await phone.locator('#android-download').isVisible());
+    assert(!(await phone.locator('#ios-install').isVisible()));
+    const iphoneContext = await browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'
+    });
+    const iphone = await iphoneContext.newPage();
+    await iphone.goto(base + '/camera#code=' + state.code);
+    await iphone.locator('details').evaluate((element) => {
+      element.open = true;
+    });
+    assert(!(await iphone.locator('#android-download').isVisible()));
+    assert(!(await iphone.locator('#android-install').isVisible()));
+    assert(await iphone.locator('#ios-install').isVisible());
+    const invitation = new URL(await iphone.locator('#open').getAttribute('href'));
+    assert.equal(invitation.searchParams.get('server'), base);
+    assert.equal(invitation.searchParams.get('code'), state.code);
+    await iphoneContext.close();
     console.log(
       'Replay UI passed: actual H.264/fMP4 decoding, frame timestamps, scrubbing, slow motion, ongoing capture, clip export and durable recording.'
     );

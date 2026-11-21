@@ -31,6 +31,7 @@ let key = '',
   lastPause = null,
   incidentStart = null,
   incidentEnd = null;
+let previousBrowserUrl = '';
 function completeUpdate() {
   updating = false;
   if (pendingReplay !== null) {
@@ -59,6 +60,29 @@ function networkAddresses() {
 }
 function render() {
   if (!state) return;
+  const browser = state.browserCamera || { phase: 'off', url: '', error: '' };
+  $('enable-browser').disabled = browser.phase === 'starting' || browser.phase === 'ready';
+  $('disable-browser').hidden = !['starting', 'ready'].includes(browser.phase);
+  $('browser-link-status').textContent =
+    browser.phase === 'starting'
+      ? 'Preparing HTTPS link… First use downloads the verified Cloudflare helper. This may take a minute.'
+      : browser.phase === 'ready'
+        ? 'Browser camera enabled · scan the QR code in Safari. Internet required; video travels through Cloudflare.'
+        : browser.error ||
+          'Browser camera needs an HTTPS link. Internet required; video travels through Cloudflare.';
+  if (previousBrowserUrl && previousBrowserUrl !== browser.url) {
+    const option = [...$('address').options].find((item) => item.value === previousBrowserUrl);
+    if (option) option.remove();
+    previousBrowserUrl = '';
+  }
+  if (browser.phase === 'ready' && browser.url && previousBrowserUrl !== browser.url) {
+    const option = document.createElement('option');
+    option.value = browser.url;
+    option.textContent = browser.url + ' (browser camera)';
+    $('address').append(option);
+    $('address').value = browser.url;
+    previousBrowserUrl = browser.url;
+  }
   $('code').textContent = Date.now() < state.codeExpires ? state.code : 'Expired';
   $('camera').textContent = state.camera
     ? state.camera.name +
@@ -326,6 +350,20 @@ async function poll() {
   }
 }
 $('address').onchange = render;
+async function browserLink(enabled) {
+  $('enable-browser').disabled = true;
+  $('disable-browser').disabled = true;
+  try {
+    await request('tunnel', { enabled });
+    await poll();
+  } catch (error) {
+    $('browser-link-status').textContent = error.message;
+  } finally {
+    $('disable-browser').disabled = false;
+  }
+}
+$('enable-browser').onclick = () => void browserLink(true);
+$('disable-browser').onclick = () => void browserLink(false);
 $('rotate').onclick = async () => {
   try {
     state = await (await request('rotate', {})).json();

@@ -28,7 +28,7 @@ const { randomUUID } = require('node:crypto');
   fs.cpSync(path.join(built, 'judge-bridge'), path.join(suite, 'judge-bridge'), {
     recursive: true,
     filter: (source) =>
-      !['recordings', '.git', 'test-results'].includes(path.basename(source)) &&
+      !['recordings', 'camera-tools', '.git', 'test-results'].includes(path.basename(source)) &&
       !/\.(log|pid)$/.test(source)
   });
   const defaultOutput = path.join(root, 'dist/electron');

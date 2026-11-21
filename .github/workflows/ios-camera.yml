@@ -1,0 +1,41 @@
+name: iOS replay camera
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'apps/camera-ios/**'
+      - '.github/workflows/ios-camera.yml'
+  pull_request:
+    paths:
+      - 'apps/camera-ios/**'
+      - '.github/workflows/ios-camera.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select an available iPhone simulator
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for runtime,items in devices.items() if "iOS" in runtime for d in items if d["name"].startswith("iPhone")))')
+          echo "SIMULATOR_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+      - name: Build and test
+        run: |
+          xcodebuild test \
+            -project apps/camera-ios/UoBTKDReplayCamera.xcodeproj \
+            -scheme UoBTKDReplayCamera \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath apps/camera-ios/DerivedData \
+            -resultBundlePath test-results/ios-camera.xcresult \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Save test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-camera-test-results
+          path: test-results/ios-camera.xcresult

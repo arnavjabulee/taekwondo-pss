@@ -77,6 +77,9 @@ function createReplay(options = {}) {
       code,
       codeExpires: expires,
       recording,
+      browserCamera: options.browserCameraState
+        ? options.browserCameraState()
+        : { phase: 'off', url: '', error: '' },
       recordingPath,
       archiveBytes,
       pause,

@@ -15,6 +15,6 @@ For mobile punch judging, choose 1–3 corner referees on the first **Competitio
 
 If phones cannot connect, choose **Enable phone connections** in the Mobile judges panel and approve the Windows prompt. This permanently allows the judge service on your local network only.
 
-For video replay, click **Video replay**, scan the camera QR code and install/open the Android camera app. Pair, approve the camera on the laptop, then start recording on the phone. Keep the camera app visible. The replay window offers scrubbing, frame stepping, slow motion and clip export; full fMP4 recordings are saved in `UoBTKD Training Suite/judge-bridge/recordings`.
+For video replay, click **Video replay**. For iPhone, select **Enable iPhone / browser camera**, scan the HTTPS QR code in Safari 18.4+, pair, approve on the laptop, and start recording. Keep Safari open and the phone unlocked. This option needs internet and sends video through Cloudflare. Android can also use the installed camera app on local Wi-Fi. Full recordings are saved in the desktop's `judge-bridge/recordings` folder.
 
 [Build instructions](README-English.md) · [Scoring](PSS-LOGIC.md) · [Shortcuts](KEYBOARD-SHORTCUTS.md)

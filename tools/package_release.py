@@ -7,7 +7,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
-EXCLUDED = {'recordings', 'LocalStorage', 'data', 'logs', 'temp', 'test-results', '__pycache__'}
+EXCLUDED = {'recordings', 'camera-tools', 'LocalStorage', 'data', 'logs', 'temp', 'test-results', '__pycache__'}
 EXCLUDED_SUFFIXES = {'.log', '.pid', '.localstorage', '.db', '.sqlite', '.sqlite3', '.pyc'}
 
 

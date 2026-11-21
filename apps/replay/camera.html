@@ -6,20 +6,43 @@
     <title>UoBTKD Companion</title>
     <link rel="stylesheet" href="/replay.css" />
     <script src="/camera.js" defer></script>
+    <script src="/camera-mp4.js" defer></script>
+    <script src="/browser-camera.js" defer></script>
   </head>
   <body>
     <main class="phone">
       <h1>UoBTKD Companion · IVR Camera</h1>
-      <p>
-        Install the Android companion app, then open it with this camera invitation. Your phone and
-        laptop must be on the same local network.
-      </p>
-      <a class="button" href="/camera.apk" download>Download Android app</a
-      ><a class="button" id="open" href="#">Open camera app</a>
-      <p>
-        Android may ask you to allow installation from this browser. Camera access is requested when
-        you start recording.
-      </p>
+      <section class="browser-camera">
+        <p>Record directly in Safari on iPhone · no installation required.</p>
+        <label>Camera name <input id="camera-name" value="Browser camera" maxlength="50" /></label>
+        <label
+          >Camera code <input id="camera-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+        /></label>
+        <div class="toolbar">
+          <button id="pair-browser">Pair camera</button>
+          <button id="start-browser" disabled>Start recording</button>
+          <button id="stop-browser" disabled>Stop recording</button>
+        </div>
+        <p id="browser-status" role="status"></p>
+        <video id="preview" autoplay playsinline muted></video>
+        <p>
+          Keep Safari visible and the phone unlocked. Browser recording stops when you leave the
+          page.
+        </p>
+      </section>
+      <details>
+        <summary>Use an installed camera app instead</summary>
+        <a class="button" id="android-download" href="/camera.apk" download>Download Android app</a
+        ><a class="button" id="open" href="#">Open camera app</a>
+        <p id="android-install">
+          Android may ask you to allow installation from this browser. Camera access is requested
+          when you start recording.
+        </p>
+        <p id="ios-install" hidden>
+          Native iPhone app installation requires the iOS Xcode project and a Mac. You can use the
+          browser camera above without installing it.
+        </p>
+      </details>
       <p>
         After pairing, approve the camera in the desktop replay window, then tap
         <strong>Start recording</strong> on the phone. Keep the app visible and place the phone in
